@@ -232,6 +232,7 @@ Server::listen(int port_number, int domain, bool non_blocking, int recv_bufsize,
   struct addrinfo hints;
   struct addrinfo *ai_res = NULL;
   struct addrinfo *ai;
+  socklen_t addrlen = 0;  // keep track of length of socket address info
   snprintf(port, sizeof(port), "%d", port_number);
 
   memset(&hints, 0, sizeof(hints));
@@ -248,6 +249,7 @@ Server::listen(int port_number, int domain, bool non_blocking, int recv_bufsize,
   res = socketManager.socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
 
   memset(&sa, 0, sizeof(sa));
+  addrlen = ai->ai_addrlen;  // save value for later since ai will be freed asap
   memcpy(&sa, ai->ai_addr, ai->ai_addrlen);
 
   freeaddrinfo(ai_res);
@@ -319,7 +321,7 @@ Server::listen(int port_number, int domain, bool non_blocking, int recv_bufsize,
   if ((res = safe_setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, ON, sizeof(int))) < 0)
     goto Lerror;
 
-  if ((res = socketManager.ink_bind(fd, (struct sockaddr *) &sa, sizeof(sa), IPPROTO_TCP)) < 0) {
+  if ((res = socketManager.ink_bind(fd, (struct sockaddr *) &sa, addrlen, IPPROTO_TCP)) < 0) {
     goto Lerror;
   }
 #ifdef SET_TCP_NO_DELAY
