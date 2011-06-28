@@ -448,6 +448,11 @@ register_stat_callbacks()
                      "proxy.process.http.server_raw_transaction_time",
                      RECD_INT, RECP_NULL, (int) http_server_raw_transaction_time_stat, RecRawStatSyncSum);
 
+#ifdef CACHE_SSD
+  RecRegisterRawStat(http_rsb, RECT_PROCESS,
+                     "proxy.process.http.ssd_serve_total_size",
+                     RECD_INT, RECP_NULL, (int) http_ssd_serve_total_size_stat, RecRawStatSyncSum);
+#endif
   RecRegisterRawStat(http_rsb, RECT_PROCESS,
                      "proxy.process.http.user_agent_request_header_total_size",
                      RECD_INT, RECP_NULL, (int) http_user_agent_request_header_total_size_stat, RecRawStatSyncSum);

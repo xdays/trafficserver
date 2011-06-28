@@ -103,12 +103,18 @@ struct CacheDisk: public Continuation
   DiskVol *free_blocks;
   int num_errors;
   int cleared;
+#ifdef CACHE_SSD
+  bool is_ssd;
+#endif
 
   CacheDisk()
     : Continuation(new_ProxyMutex()), header(NULL),
       path(NULL), header_len(0), len(0), start(0), skip(0),
       num_usable_blocks(0), fd(-1), free_space(0), wasted_space(0),
       disk_vols(NULL), free_blocks(NULL), num_errors(0), cleared(0)
+#ifdef CACHE_SSD
+  , is_ssd(false)
+#endif
   { }
 
    ~CacheDisk();

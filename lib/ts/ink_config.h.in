@@ -159,6 +159,8 @@
 # define HTTP_CACHE                     1
 #endif
 
+# define CACHE_SSD                      1
+
 #if TS_HAS_PURIFY
 # define PURIFY                         1
 #endif

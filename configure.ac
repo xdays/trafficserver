@@ -766,7 +766,7 @@ case $host_os in
     TCL_LIB_SPEC="-ltcl" # OSX fails to populate this variable
     ;;
   *)
-   ;;
+    ;;
 esac
 AC_SUBST([LIBTCL],[$TCL_LIB_SPEC])
 
@@ -1202,7 +1202,8 @@ AC_CONFIG_FILES([lib/tsconfig/Makefile])
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([proxy/config/body_factory/default/Makefile])
 AC_CONFIG_FILES([proxy/config/body_factory/Makefile])
-AC_CONFIG_FILES([proxy/config/records.config.default proxy/config/storage.config.default])
+AC_CONFIG_FILES([proxy/config/records.config.default
+		proxy/config/storage_ssd.config.default proxy/config/storage.config.default])
 AC_CONFIG_FILES([proxy/config/Makefile])
 AC_CONFIG_FILES([proxy/congest/Makefile])
 AC_CONFIG_FILES([proxy/hdrs/Makefile])

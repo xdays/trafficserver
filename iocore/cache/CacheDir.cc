@@ -514,7 +514,7 @@ dir_probe(CacheKey *key, Vol *d, Dir *result, Dir ** last_collision)
 #endif
 Lagain:
   e = dir_bucket(b, seg);
-  if (dir_offset(e))
+  if (dir_offset(e)) {
     do {
       if (dir_compare_tag(e, key)) {
         ink_debug_assert(dir_offset(e));
@@ -545,12 +545,14 @@ Lagain:
           e = dir_delete_entry(e, p, s, d);
           continue;
         }
-      } else
+      } else {
         DDebug("dir_probe_tag", "tag mismatch %X %X vs expected %X", e, dir_tag(e), key->word(3));
+      }
     Lcont:
       p = e;
       e = next_dir(e, seg);
     } while (e);
+  }
   if (collision) {              // last collision no longer in the list, retry
     DDebug("cache_stats", "Incrementing dir collisions");
     CACHE_INC_DIR_COLLISIONS(d->mutex);

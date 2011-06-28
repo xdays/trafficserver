@@ -19,11 +19,13 @@
 SUBDIRS = body_factory
 EXTRA_DIST = \
   records.config.default.in \
+  storage_ssd.config.default.in \
   storage.config.default.in
 
 sysconfdir = $(pkgsysconfdir)
 nodist_sysconf_DATA = \
   records.config.default \
+  storage_ssd.config.default \
   storage.config.default
 
 dist_sysconf_DATA =	\

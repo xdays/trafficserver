@@ -933,6 +933,13 @@ RecordElement RecordsConfig[] = {
   ,
   {RECT_CONFIG, "proxy.config.cache.vary_on_user_agent", RECD_INT, "0", RECU_DYNAMIC, RR_NULL, RECC_NULL, NULL, RECA_NULL}
   ,
+  //##############################################################################
+  //#
+  //# SSD Cache
+  //#
+  //##############################################################################
+  {RECT_CONFIG, "proxy.config.cache.ssd_filename", RECD_STRING, "storage_ssd.config", RECU_RESTART_TS, RR_NULL, RECC_NULL, NULL, RECA_NULL}
+  ,
   //  # 0 - MD5 hash
   //  # 1 - MMH hash
   {RECT_CONFIG, "proxy.config.cache.url_hash_method", RECD_INT, "1", RECU_RESTART_TS, RR_NULL, RECC_NULL, NULL, RECA_NULL}

@@ -192,13 +192,18 @@ CacheHostMatcher::NewEntry(matcher_line * line_info)
  *   End class HostMatcher
  *************************************************************/
 
-CacheHostTable::CacheHostTable(Cache * c, int typ)
+CacheHostTable::CacheHostTable(Cache * c, int typ
+#ifdef CACHE_SSD
+    , int ssd_typ
+#endif
+    )
 {
-
-
   config_tags = &CacheHosting_tags;
   ink_assert(config_tags != NULL);
 
+#ifdef CACHE_SSD
+  ssd_type = ssd_typ;
+#endif
   type = typ;
   cache = c;
   matcher_name = "[CacheHosting]";;
@@ -423,10 +428,16 @@ CacheHostTable::BuildTableFromString(char *file_buf)
 int
 CacheHostTable::BuildTable()
 {
-
   // File I/O Locals
   char *file_buf;
   int ret;
+
+#ifdef CACHE_SSD
+  if (ssd_type) {
+    gen_host_rec.Init(type, ssd_type);
+    return 0;
+  }
+#endif
 
   file_buf = readIntoBuffer(config_file_path, matcher_name, NULL);
 
@@ -442,7 +453,11 @@ CacheHostTable::BuildTable()
 }
 
 int
-CacheHostRecord::Init(int typ)
+CacheHostRecord::Init(int typ
+#ifdef CACHE_SSD
+    , int ssd_type
+#endif
+    )
 {
 
   int i, j;
@@ -462,7 +477,21 @@ CacheHostRecord::Init(int typ)
       Debug("cache_hosting", "Host Record: %xd, Volume: %d, size: %u", this, cachep->vol_number, cachep->size);
       cp[num_cachevols] = cachep;
       num_cachevols++;
+#ifdef CACHE_SSD
+      if (ssd_type) {
+        for (i = 0; i < cachep->num_vols; ++i) {
+          if (cachep->vols[i]->disk->is_ssd)
+            ++num_vols;
+        }
+      } else {
+        for (i = 0; i < cachep->num_vols; ++i) {
+          if (!cachep->vols[i]->disk->is_ssd)
+            ++num_vols;
+        }
+      }
+#else
       num_vols += cachep->num_vols;
+#endif
     }
   }
   if (!num_cachevols) {
@@ -475,7 +504,14 @@ CacheHostRecord::Init(int typ)
   for (i = 0; i < num_cachevols; i++) {
     CacheVol *cachep1 = cp[i];
     for (j = 0; j < cachep1->num_vols; j++) {
+#ifdef CACHE_SSD
+      if (ssd_type && cachep1->vols[j]->disk->is_ssd)
+        vols[counter++] = cachep1->vols[j];
+      else if (!ssd_type && !cachep1->vols[j]->disk->is_ssd)
+        vols[counter++] = cachep1->vols[j];
+#else
       vols[counter++] = cachep1->vols[j];
+#endif
     }
   }
   ink_assert(counter == num_vols);

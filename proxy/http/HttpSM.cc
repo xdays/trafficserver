@@ -4053,6 +4053,9 @@ HttpSM::do_http_server_open(bool raw)
 {
   Debug("http_track", "entered inside do_http_server_open");
 
+#ifdef CACHE_SSD
+  t_state.doc_from_ssd = false;
+#endif
   ink_assert(server_entry == NULL);
 
   // ua_entry can be null if a scheduled update is also a reverse proxy

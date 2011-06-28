@@ -130,6 +130,11 @@ enum
   cache_read_active_stat,
   cache_read_success_stat,
   cache_read_failure_stat,
+#ifdef CACHE_SSD
+  cache_ssd_read_active_stat,
+  cache_ssd_read_success_stat,
+  cache_ssd_read_failure_stat,
+#endif
   cache_write_active_stat,
   cache_write_success_stat,
   cache_write_failure_stat,
@@ -349,6 +354,14 @@ struct CacheVC: public CacheVConnection
   int evacuateDocDone(int event, Event *e);
   int evacuateReadHead(int event, Event *e);
 
+#ifdef CACHE_SSD
+  int write2SSDDone(int event, Event *e);
+  int removeSSD(int event, Event *e);
+  virtual bool stat_ssd() {
+    return true;
+  }
+#endif
+
   void cancel_trigger();
   virtual int64_t get_object_size();
 #ifdef HTTP_CACHE
@@ -426,7 +439,13 @@ struct CacheVC: public CacheVConnection
   Frag *frag;           // arraylist of fragment offset
   Frag integral_frags[INTEGRAL_FRAGS];
   Vol *vol;
+#ifdef CACHE_SSD
+  Vol *vol_backup;
+  char *write2ssd_doc;
+  int write2ssd_len;
+#endif
   Dir *last_collision;
+
   Event *trigger;
   CacheKey *read_key;
   ContinuationHandler save_handler;
@@ -478,6 +497,15 @@ struct CacheVC: public CacheVConnection
       unsigned int doc_from_ram_cache:1;
 #ifdef HIT_EVACUATE
       unsigned int hit_evacuate:1;
+#endif
+#ifdef CACHE_SSD
+      unsigned int doc_from_ssd:1;
+      unsigned int read_from_ssd:1;
+      unsigned int write_to_ssd:1;
+      unsigned int write_to_ramcache:1;
+      unsigned int read_before_write:1;
+      unsigned int read_done:1;
+      unsigned int l_tag1:1;//local variable in CacheVC::openReadClose
 #endif
     } f;
   };
@@ -556,6 +584,12 @@ free_CacheVC(CacheVC *cont)
     CACHE_DECREMENT_DYN_STAT(cont->base_stat + CACHE_STAT_ACTIVE);
     if (cont->closed > 0) {
       CACHE_INCREMENT_DYN_STAT(cont->base_stat + CACHE_STAT_SUCCESS);
+#ifdef CACHE_SSD
+      if (cont->f.doc_from_ssd) {
+        CACHE_DECREMENT_DYN_STAT(cache_ssd_read_active_stat);
+        CACHE_INCREMENT_DYN_STAT(cache_ssd_read_success_stat);
+      }
+#endif
     }                             // else abort,cancel
   }
   ink_debug_assert(mutex->thread_holding == this_ethread());
@@ -572,6 +606,12 @@ free_CacheVC(CacheVC *cont)
   cont->io.aio_result = 0;
   cont->io.aiocb.aio_nbytes = 0;
   cont->io.aiocb.aio_reqprio = AIO_DEFAULT_PRIORITY;
+#ifdef CACHE_SSD
+  if (cont->write2ssd_doc != NULL) {
+    xfree(cont->write2ssd_doc);
+    cont->write2ssd_doc = NULL;
+  }
+#endif
 #ifdef HTTP_CACHE
   cont->request.reset();
   cont->vector.clear();
@@ -952,6 +992,9 @@ struct Cache
   volatile int ready;
   int64_t cache_size;             //in store block size
   CacheHostTable *hosttable;
+#ifdef CACHE_SSD
+  CacheHostTable *ssd_hosttable;
+#endif
   volatile int total_initialized_vol;
   int scheme;
 
@@ -993,11 +1036,19 @@ struct Cache
 
   int open_done();
 
-  Vol *key_to_vol(CacheKey *key, char *hostname, int host_len);
+  Vol *key_to_vol(CacheKey *key, char *hostname, int host_len
+#ifdef CACHE_SSD
+      , int ssd_type = false
+#endif
+      );
 
   Cache()
     : cache_read_done(0), total_good_nvol(0), total_nvol(0), ready(CACHE_INITIALIZING), cache_size(0),  // in store block size
-      hosttable(NULL), total_initialized_vol(0), scheme(CACHE_NONE_TYPE)
+      hosttable(NULL),
+#ifdef CACHE_SSD
+      ssd_hosttable(NULL),
+#endif
+      total_initialized_vol(0), scheme(CACHE_NONE_TYPE)
     { }
 };
 

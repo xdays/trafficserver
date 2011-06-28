@@ -35,7 +35,11 @@ struct Cache;
 
 struct CacheHostRecord
 {
-  int Init(int typ);
+  int Init(int typ
+#ifdef CACHE_SSD
+      , int ssd_type = false
+#endif
+      );
   int Init(matcher_line *line_info, int typ);
   void UpdateMatch(CacheHostResult *r, char *rd);
   void Print();
@@ -108,7 +112,11 @@ class CacheHostTable
 public:
   // Parameter name must not be deallocated before this
   //  object is
-  CacheHostTable(Cache *c, int typ);
+  CacheHostTable(Cache *c, int typ
+#ifdef CACHE_SSD
+      , int ssd_type = false
+#endif
+      );
    ~CacheHostTable();
   int BuildTable();
   int BuildTableFromString(char *str);
@@ -125,6 +133,9 @@ public:
     IOCORE_RegisterConfigUpdateFunc("proxy.config.cache.hosting_filename", CacheHostTable::config_callback, (void *) p);
   }
 
+#ifdef CACHE_SSD
+  int ssd_type;
+#endif
   int type;
   Cache *cache;
   int m_numEntries;
@@ -152,7 +163,11 @@ struct CacheHostTableConfig: public Continuation
   {
     (void) e;
     (void) event;
-    CacheHostTable *t = NEW(new CacheHostTable((*ppt)->cache, (*ppt)->type));
+    CacheHostTable *t = NEW(new CacheHostTable((*ppt)->cache, (*ppt)->type
+#ifdef CACHE_SSD
+    , (*ppt)->ssd_type)
+#endif
+    );
     CacheHostTable *old = (CacheHostTable *) ink_atomic_swap_ptr(&t, ppt);
     new_Deleter(old, CACHE_MEM_FREE_TIMEOUT);
     return EVENT_DONE;

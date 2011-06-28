@@ -1056,6 +1056,9 @@ public:
     OverridableHttpConfigParams *txn_conf;
     OverridableHttpConfigParams my_txn_conf; // Storage for plugins, to avoid malloc
     
+#ifdef CACHE_SSD
+    bool doc_from_ssd;
+#endif
     // Methods
     void
     init()
@@ -1145,6 +1148,9 @@ public:
         pristine_url(),
         api_skip_all_remapping(false),
         txn_conf(NULL)
+#ifdef CACHE_SSD
+    , doc_from_ssd(false)
+#endif
     {
       int i;
       char *via_ptr = via_string;

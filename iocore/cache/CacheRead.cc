@@ -105,6 +105,85 @@ Cache::open_read(Continuation * cont, CacheKey * key, CacheHTTPHdr * request,
   OpenDirEntry *od = NULL;
   CacheVC *c = NULL;
 
+#ifdef CACHE_SSD
+  Dir ssd_result, *last_ssd_collision = NULL;
+  Vol *ssd_vol = key_to_vol(key, hostname, host_len, true);
+  if (ssd_vol != NULL) {
+    {
+      CACHE_TRY_LOCK(ssd_lock, ssd_vol->mutex, mutex->thread_holding);
+      if (!ssd_lock || dir_probe(key, ssd_vol, &ssd_result, &last_ssd_collision)) {
+        c = new_CacheVC(cont);
+        c->first_key = c->key = c->earliest_key = *key;
+        c->vol = ssd_vol;
+        c->vol_backup = vol;
+        vol = ssd_vol;
+        c->vio.op = VIO::READ;
+        c->base_stat = cache_read_active_stat;
+        CACHE_INCREMENT_DYN_STAT(c->base_stat + CACHE_STAT_ACTIVE);
+        CACHE_INCREMENT_DYN_STAT(cache_ssd_read_active_stat);
+        c->request.copy_shallow(request);
+        c->frag_type = CACHE_FRAG_TYPE_HTTP;
+        c->params = params;
+        c->od = NULL;
+        c->f.read_from_ssd = true;
+      }
+      if (!ssd_lock) {
+        Debug("ssd_cache_trylock", "trylock ssd fail in open_read ssd");
+        SET_CONTINUATION_HANDLER(c, &CacheVC::openReadStartHead);
+        CONT_SCHED_LOCK_RETRY(c);
+        return &c->_action;
+      }
+      if (c) {
+        Debug("ssd_cache_probe", "probe hit in ssd");
+        c->f.doc_from_ssd = true;
+        c->dir = c->first_dir = ssd_result;
+        c->last_collision = last_ssd_collision;
+        SET_CONTINUATION_HANDLER(c, &CacheVC::openReadStartHead);
+        switch(c->do_read_call(&c->key)) {
+          case EVENT_DONE: return ACTION_RESULT_DONE;
+          case EVENT_RETURN: goto Lcallreturn;
+          default: return &c->_action;
+        }
+      }
+    }
+    if (!c) {
+      CACHE_INCREMENT_DYN_STAT(cache_ssd_read_failure_stat);
+      CACHE_TRY_LOCK(lock, vol->mutex, mutex->thread_holding);
+      if (!lock || (od = vol->open_read(key)) || dir_probe(key, vol, &result, &last_collision)) {
+        c = new_CacheVC(cont);
+        c->first_key = c->key = c->earliest_key = *key;
+        c->vol = vol;
+        c->vol_backup = ssd_vol;
+        c->vio.op = VIO::READ;
+        c->base_stat = cache_read_active_stat;
+        CACHE_INCREMENT_DYN_STAT(c->base_stat + CACHE_STAT_ACTIVE);
+        c->request.copy_shallow(request);
+        c->frag_type = CACHE_FRAG_TYPE_HTTP;
+        c->params = params;
+        c->od = od;
+      }
+      if (!lock) {
+        Debug("ssd_cache_trylock", "trylock sata fail in open_read sata");
+        SET_CONTINUATION_HANDLER(c, &CacheVC::openReadStartHead);
+        CONT_SCHED_LOCK_RETRY(c);
+        return &c->_action;
+      }
+      if (!c)
+        goto Lmiss;
+      if (c->od)
+        goto Lwriter;
+      Debug("ssd_cache_probe", "probe hit in sata");
+      c->dir = c->first_dir = result;
+      c->last_collision = last_collision;
+      SET_CONTINUATION_HANDLER(c, &CacheVC::openReadStartHead);
+      switch(c->do_read_call(&c->key)) {
+        case EVENT_DONE: return ACTION_RESULT_DONE;
+        case EVENT_RETURN: goto Lcallreturn;
+        default: return &c->_action;
+      }
+    }
+  } else
+#endif
   {
     CACHE_TRY_LOCK(lock, vol->mutex, mutex->thread_holding);
     if (!lock || (od = vol->open_read(key)) || dir_probe(key, vol, &result, &last_collision)) {
@@ -513,13 +592,17 @@ CacheVC::openReadClose(int event, Event * e)
 {
   NOWARN_UNUSED(e);
   NOWARN_UNUSED(event);
-
   cancel_trigger();
   if (is_io_in_progress()) {
     if (event != AIO_EVENT_DONE)
       return EVENT_CONT;
     set_io_not_in_progress();
   }
+#ifdef CACHE_SSD
+  if (f.l_tag1)
+    goto LWriteSSD;
+  {
+#endif
   CACHE_TRY_LOCK(lock, vol->mutex, mutex->thread_holding);
   if (!lock)
     VC_SCHED_LOCK_RETRY();
@@ -534,6 +617,37 @@ CacheVC::openReadClose(int event, Event * e)
   }
 #endif
   vol->close_read(this);
+#ifdef CACHE_SSD
+  }
+  f.l_tag1 = true;
+LWriteSSD:
+  if (f.read_done && !f.doc_from_ssd && write2ssd_doc != NULL && f.write_to_ramcache)
+  {
+    MUTEX_TRY_LOCK(ssd_lock, vol_backup->mutex, mutex->thread_holding);
+    if (!ssd_lock) {
+      Debug("ssd_cache_trylock", "trylock ssd fail when read done sata and ready to aggwrite ssd");
+      VC_SCHED_LOCK_RETRY();
+    }
+    f.l_tag1 = false;
+    f.read_done = false;
+    f.write_to_ramcache = false;
+    CacheVC *ssd_vc = new_CacheVC(vol_backup);
+    ssd_vc->f.write_to_ssd = true;
+    ssd_vc->write2ssd_doc = (char *)xmalloc(write2ssd_len);
+    ssd_vc->write2ssd_len = write2ssd_len;
+    memcpy(ssd_vc->write2ssd_doc, write2ssd_doc, write2ssd_len);
+    ssd_vc->vol = vol_backup;
+    ssd_vc->key = first_key;
+    ssd_vc->agg_len = vol_backup->round_to_approx_size((uint32_t) write2ssd_len);
+    vol_backup->agg_todo_size += ssd_vc->agg_len;
+    dir_clear(&ssd_vc->dir);
+    SET_CONTINUATION_HANDLER(ssd_vc, &CacheVC::write2SSDDone);
+    vol_backup->agg.enqueue(ssd_vc);
+    if (!vol_backup->is_io_in_progress()) {
+      vol_backup->aggWrite(EVENT_CALL, NULL);
+    }
+  }
+#endif
   return free_CacheVC(this);
 }
 
@@ -820,6 +934,9 @@ Lread:
     // read has detected that alternate does not exist in the cache.
     // rewrite the vector.
 #ifdef HTTP_CACHE
+#ifdef CACHE_SSD
+    if (!f.read_from_ssd) {
+#endif
     if (!f.read_from_writer_called && frag_type == CACHE_FRAG_TYPE_HTTP) {
       // don't want any writers while we are evacuating the vector
       if (!vol->open_write(this, false, 1)) {
@@ -871,6 +988,9 @@ Lread:
         }
       }
     }
+#ifdef CACHE_SSD
+    }
+#endif
 #endif
     // open write failure - another writer, so don't modify the vector
   Ldone:
@@ -1008,6 +1128,13 @@ CacheVC::openReadStartHead(int event, Event * e)
         goto Ldone;
       if (vector.get_handles(doc->hdr(), doc->hlen) != doc->hlen) {
         if (buf) {
+#ifdef CACHE_SSD
+	  if (f.doc_from_ssd) {
+	    Note("OpenReadHead failed for cachekey %X : vector inconsistency with %d in ssd cache", key.word(0), doc->hlen);
+	    CACHE_DECREMENT_DYN_STAT(cache_ssd_read_active_stat);
+	    CACHE_INCREMENT_DYN_STAT(cache_ssd_read_failure_stat);
+	  } else
+#endif
           Note("OpenReadHead failed for cachekey %X : vector inconsistency with %d", key.word(0), doc->hlen);
           dir_delete(&key, vol, &dir);
         }
@@ -1029,6 +1156,13 @@ CacheVC::openReadStartHead(int event, Event * e)
       alternate_tmp = vector.get(alternate_index);
       if (!alternate_tmp->valid()) {
         if (buf) {
+#ifdef CACHE_SSD
+	  if (f.doc_from_ssd) {
+	    Note("OpenReadHead failed for cachekey %X : alternate inconsistency with %d in ssd cache", key.word(0), doc->hlen);
+	    CACHE_DECREMENT_DYN_STAT(cache_ssd_read_active_stat);
+	    CACHE_INCREMENT_DYN_STAT(cache_ssd_read_failure_stat);
+	  } else
+#endif
           Note("OpenReadHead failed for cachekey %X : alternate inconsistency", key.word(0));
           dir_delete(&key, vol, &dir);
         }
@@ -1059,6 +1193,10 @@ CacheVC::openReadStartHead(int event, Event * e)
     // fragment is there before returning CACHE_EVENT_OPEN_READ
     if (!f.single_fragment)
       goto Learliest;
+#ifdef CACHE_SSD
+    else
+      f.read_done = true;
+#endif
 
 #ifdef HIT_EVACUATE
     if (vol->within_hit_evacuate_window(&dir) &&
@@ -1080,6 +1218,9 @@ CacheVC::openReadStartHead(int event, Event * e)
     // don't want to go through this BS of reading from a writer if
     // its a lookup. In this case lookup will fail while the document is
     // being written to the cache.
+#ifdef CACHE_SSD
+    if (!f.read_from_ssd) {
+#endif
     OpenDirEntry *cod = vol->open_read(&key);
     if (cod && !f.read_from_writer_called) {
       if (f.lookup) {
@@ -1091,13 +1232,48 @@ CacheVC::openReadStartHead(int event, Event * e)
       SET_HANDLER(&CacheVC::openReadFromWriter);
       return handleEvent(EVENT_IMMEDIATE, 0);
     }
+#ifdef CACHE_SSD
+    }
+#endif
     if (dir_probe(&key, vol, &dir, &last_collision)) {
+#ifdef CACHE_SSD
+      if (f.read_from_ssd && !f.doc_from_ssd) {
+        f.doc_from_ssd = true;
+      }
+#endif
       first_dir = dir;
       int ret = do_read_call(&key);
       if (ret == EVENT_RETURN)
         goto Lcallreturn;
       return ret;
     }
+#ifdef CACHE_SSD
+    else {
+      if (f.read_from_ssd && !f.doc_from_ssd) {
+        CACHE_DECREMENT_DYN_STAT(cache_ssd_read_active_stat);
+        CACHE_INCREMENT_DYN_STAT(cache_ssd_read_failure_stat);
+        f.read_from_ssd = false;
+        last_collision = NULL;
+        od = NULL;
+        Vol *tmp = vol_backup;
+        vol_backup = vol;
+        vol = tmp;
+        dir_clear(&dir);
+        dir_clear(&first_dir);
+        dir_clear(&earliest_dir);
+        buf.clear();
+        first_buf.clear();
+        blocks.clear();
+        writer_buf.clear();
+        alternate.destroy();
+        vector.clear();
+        io.aio_result = 0;
+        io.aiocb.aio_nbytes = 0;
+        io.aiocb.aio_reqprio = AIO_DEFAULT_PRIORITY;
+        VC_SCHED_LOCK_RETRY();
+      }
+    }
+#endif
   }
 Ldone:
   if (!f.lookup) {

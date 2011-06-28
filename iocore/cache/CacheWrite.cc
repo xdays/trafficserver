@@ -547,6 +547,26 @@ CacheVC::evacuateDocDone(int event, Event *e)
   return free_CacheVC(this);
 }
 
+#ifdef CACHE_SSD
+int
+CacheVC::write2SSDDone(int event, Event *e)
+{
+  NOWARN_UNUSED(e);
+  NOWARN_UNUSED(event);
+
+  cancel_trigger();
+  {
+    MUTEX_TRY_LOCK(ssd_lock, vol->mutex, mutex->thread_holding);
+    if (!ssd_lock) {
+      Debug("ssd_cache_trylock", "trylock ssd fail when write2SSDDone");
+      VC_SCHED_LOCK_RETRY();
+    }
+    dir_insert(&key, vol, &dir);
+  }
+  return free_CacheVC(this);
+}
+#endif
+
 static int
 evacuate_fragments(CacheKey *key, CacheKey *earliest_key, int force, Vol *vol)
 {
@@ -741,6 +761,9 @@ agg_copy(char *p, CacheVC *vc)
   Vol *vol = vc->vol;
   off_t o = vol->header->write_pos + vol->agg_buf_pos;
 
+#ifdef CACHE_SSD
+  if (!vc->f.write_to_ssd) {
+#endif
   if (!vc->f.evacuator) {
     Doc *doc = (Doc *) p;
     IOBufferBlock *res_alt_blk = 0;
@@ -882,6 +905,20 @@ agg_copy(char *p, CacheVC *vc)
 
     return l;
   }
+#ifdef CACHE_SSD
+  } else {
+    Doc *doc = (Doc *) vc->write2ssd_doc;
+    doc->sync_serial = vc->vol->header->sync_serial;
+    doc->write_serial = vc->vol->header->write_serial;
+    memcpy(p, doc, doc->len);
+
+    dir_set_approx_size(&vc->dir, vc->agg_len);
+    dir_set_offset(&vc->dir, offset_to_vol_offset(vc->vol, o));
+    dir_set_phase(&vc->dir, vc->vol->header->phase);
+
+    return vc->agg_len;
+  }
+#endif
 }
 
 inline void
@@ -994,8 +1031,9 @@ Lagain:
       while (last && UINT_WRAP_LT(c->write_serial, last->write_serial))
         last = (CacheVC*)last->link.prev;
       sync.insert(c, last);
-    } else if (c->f.evacuator)
+    } else if (c->f.evacuator) {
       c->handleEvent(AIO_EVENT_DONE, 0);
+    }
     else
       tocall.enqueue(c);
     c = n;
@@ -1069,7 +1107,11 @@ Lagain:
 Lwait:
   int ret = EVENT_CONT;
   while ((c = tocall.dequeue())) {
-    if (event == EVENT_CALL && c->mutex->thread_holding == mutex->thread_holding)
+    if (event == EVENT_CALL && c->mutex->thread_holding == mutex->thread_holding
+#ifdef CACHE_SSD
+        && !c->f.write_to_ssd
+#endif
+        )
       ret = EVENT_RETURN;
     else
       c->initial_thread->schedule_imm_signal(c, AIO_EVENT_DONE);
@@ -1763,6 +1805,34 @@ Cache::open_write(Continuation *cont, CacheKey *key, CacheHTTPInfo *info, time_t
   CACHE_INCREMENT_DYN_STAT(c->base_stat + CACHE_STAT_ACTIVE);
   c->pin_in_cache = (uint32_t) apin_in_cache;
 
+#ifdef CACHE_SSD
+  Vol *ssd_vol = key_to_vol(key, hostname, host_len, true);
+  if (ssd_vol != NULL)
+  {
+    Continuation *remove_ssd = new_CacheRemoveCont();
+    CACHE_TRY_LOCK(lock, remove_ssd->mutex, this_ethread());
+    ink_assert(lock);
+    Vol *vol = ssd_vol;
+    // coverity[var_decl]
+    Dir result;
+    dir_clear(&result);           // initialized here, set result empty so we can recognize missed lock
+    ProxyMutexPtr mutex = remove_ssd->mutex;
+
+    CacheVC *c = new_CacheVC(remove_ssd);
+    c->vio.op = VIO::NONE;
+    c->frag_type = type;
+    c->base_stat = cache_remove_active_stat;
+    CACHE_INCREMENT_DYN_STAT(c->base_stat + CACHE_STAT_ACTIVE);
+    c->first_key = c->key = *key;
+    c->vol = vol;
+    c->dir = result;
+    c->f.remove = 1;
+
+    SET_CONTINUATION_HANDLER(c, &CacheVC::removeSSD);
+    int ret = c->removeSSD(EVENT_IMMEDIATE, 0);
+    Debug("ssd_cache_remove", "remove stale object in ssd when write sata: %d", ret);
+  }
+#endif
   {
     CACHE_TRY_LOCK(lock, c->vol->mutex, cont->mutex->thread_holding);
     if (lock) {
@@ -1784,6 +1854,9 @@ Cache::open_write(Continuation *cont, CacheKey *key, CacheHTTPInfo *info, time_t
         // document doesn't exist, begin write
         goto Lmiss;
       } else {
+#ifdef CACHE_SSD
+        c->f.read_before_write = true;
+#endif
         c->od->reading_vec = 1;
         // document exists, read vector
         SET_CONTINUATION_HANDLER(c, &CacheVC::openWriteStartDone);

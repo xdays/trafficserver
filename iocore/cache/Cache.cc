@@ -78,6 +78,10 @@ int cache_config_read_while_writer = 0;
 char cache_system_config_directory[PATH_NAME_MAX + 1];
 int cache_config_mutex_retry_delay = 2;
 
+#ifdef CACHE_SSD
+Store ssd_store;
+#endif
+
 // Globals
 
 RecRawStatBlock *cache_rsb = NULL;
@@ -581,6 +585,9 @@ CacheProcessor::start_internal(int flags)
         }
         off_t skip = ROUND_TO_STORE_BLOCK((sd->offset < START_POS ? START_POS + sd->alignment : sd->offset));
         blocks = blocks - ROUND_TO_STORE_BLOCK(sd->offset + skip);
+#ifdef CACHE_SSD
+        gdisks[gndisks]->is_ssd = false;
+#endif
         gdisks[gndisks]->open(path, blocks, skip, sector_size, fd, clear);
         gndisks++;
       }
@@ -592,6 +599,57 @@ CacheProcessor::start_internal(int flags)
     Warning("unable to open cache disk(s): Cache Disabled\n");
     return -1;
   }
+
+#ifdef CACHE_SSD
+  diskok = 1;
+  sd = NULL;
+  for (i = 0; i < ssd_store.n_disks; ++i) {
+    sd = ssd_store.disk[i];
+    char path[PATH_MAX];
+    int opts = O_RDWR;
+    ink_strlcpy(path, sd->pathname, sizeof(path));
+    if (!sd->file_pathname) {
+      ink_strlcat(path, "/ssd_cache.db", sizeof(path));
+      opts |= O_CREAT;
+    }
+    opts |= _O_ATTRIB_OVERLAPPED;
+#ifdef O_DIRECT
+    opts |= O_DIRECT;
+#endif
+#ifdef O_DSYNC
+    opts |= O_DSYNC;
+#endif
+
+    int fd = open(path, opts, 0644);
+    int blocks = sd->blocks;
+    if (fd > 0) {
+      if (!sd->file_pathname) {
+        if (ftruncate(fd, ((uint64_t) blocks) * STORE_BLOCK_SIZE) < 0) {
+          Warning("unable to truncate cache file '%s' to %d blocks", path, blocks);
+          diskok = 0;
+        }
+      }
+      if (diskok) {
+        gdisks[gndisks] = NEW(new CacheDisk());
+        Debug("cache_hosting", "Disk: %d, blocks: %d", gndisks, blocks);
+        int sector_size = sd->hw_sector_size;
+        if (sector_size < cache_config_force_sector_size)
+          sector_size = cache_config_force_sector_size;
+        if (sd->hw_sector_size <= 0 || sector_size > STORE_BLOCK_SIZE) {
+          Warning("bad hardware sector size %d, resetting to %d", sector_size, STORE_BLOCK_SIZE);
+          sector_size = STORE_BLOCK_SIZE;
+        }
+        off_t skip = ROUND_TO_STORE_BLOCK((sd->offset < START_POS ? START_POS + sd->alignment : sd->offset));
+        blocks = blocks - ROUND_TO_STORE_BLOCK(sd->offset + skip);
+        gdisks[gndisks]->is_ssd = true;
+        gdisks[gndisks]->open(path, blocks, skip, sector_size, fd, clear);
+        gndisks++;
+      }
+    } else
+      Warning("unable to open '%s': %s", path, strerror(errno));
+  }
+
+#endif
   start_done = 1;
 
   return 0;
@@ -792,7 +850,6 @@ CacheProcessor::cacheInitialized()
           total_cache_bytes += vol_total_cache_bytes;
           Debug("cache_init", "CacheProcessor::cacheInitialized - total_cache_bytes = %" PRId64 " = %" PRId64 "Mb",
                 total_cache_bytes, total_cache_bytes / (1024 * 1024));
-
           CACHE_VOL_SUM_DYN_STAT(cache_bytes_total_stat, vol_total_cache_bytes);
 
 
@@ -845,7 +902,6 @@ CacheProcessor::cacheInitialized()
           CACHE_VOL_SUM_DYN_STAT(cache_bytes_total_stat, vol_total_cache_bytes);
           Debug("cache_init", "CacheProcessor::cacheInitialized - total_cache_bytes = %" PRId64 " = %" PRId64 "Mb",
                 total_cache_bytes, total_cache_bytes / (1024 * 1024));
-
           vol_total_direntries = gvol[i]->buckets * gvol[i]->segments * DIR_DEPTH;
           total_direntries += vol_total_direntries;
           CACHE_VOL_SUM_DYN_STAT(cache_direntries_total_stat, vol_total_direntries);
@@ -1747,10 +1803,22 @@ Cache::open_done()
   hosttable = NEW(new CacheHostTable(this, scheme));
   hosttable->register_config_callback(&hosttable);
 
+#ifdef CACHE_SSD
+  if (0 != ssd_store.n_disks) {
+    ssd_hosttable = NEW(new CacheHostTable(this, scheme, true));
+    ssd_hosttable->register_config_callback(&ssd_hosttable);
+  }
+#endif
+
   if (hosttable->gen_host_rec.num_cachevols == 0)
     ready = CACHE_INIT_FAILED;
   else
     ready = CACHE_INITIALIZED;
+
+#ifdef CACHE_SSD
+  if (ready == CACHE_INITIALIZED && 0 != ssd_store.n_disks && ssd_hosttable->gen_host_rec.num_cachevols == 0)
+    ready = CACHE_INIT_FAILED;
+#endif
   cacheProcessor.cacheInitialized();
 
   return 0;
@@ -1898,14 +1966,27 @@ CacheVC::handleReadDone(int event, Event *e)
           okay = 0;
         }
       }
+#ifdef CACHE_SSD
+      // copy doc before unmarshal
+      if (vol_backup != NULL && okay && !f.doc_from_ssd && !f.doc_from_ram_cache && !f.remove && !f.read_before_write) {
+        if (write2ssd_doc != NULL) {
+          xfree(write2ssd_doc);
+          write2ssd_doc = NULL;
+        }
+        write2ssd_len = doc->len;
+        write2ssd_doc = (char *)xmalloc(doc->len);
+        memcpy(write2ssd_doc, doc, doc->len);
+      }
+#endif
       bool http_copy_hdr = false;
 #ifdef HTTP_CACHE
       http_copy_hdr = cache_config_ram_cache_compress && !f.doc_from_ram_cache &&
         doc->ftype == CACHE_FRAG_TYPE_HTTP && doc->hlen;
       // If http doc we need to unmarshal the headers before putting in the ram cache
       // unless it could be compressed
-      if (!http_copy_hdr && doc->ftype == CACHE_FRAG_TYPE_HTTP && doc->hlen && okay)
+      if (!http_copy_hdr && doc->ftype == CACHE_FRAG_TYPE_HTTP && doc->hlen && okay) {
         unmarshal_helper(doc, buf, okay);
+      }
 #endif
       // Put the request in the ram cache only if its a open_read or lookup
       if (vio.op == VIO::READ && okay) {
@@ -1919,9 +2000,12 @@ CacheVC::handleReadDone(int event, Event *e)
         cutoff_check = ((!doc_len && (int64_t)doc->total_len < cache_config_ram_cache_cutoff)
                         || (doc_len && (int64_t)doc_len < cache_config_ram_cache_cutoff)
                         || !cache_config_ram_cache_cutoff);
-        if (cutoff_check && !f.doc_from_ram_cache) {
+        if (cutoff_check && !f.doc_from_ram_cache && !f.remove) {
           uint64_t o = dir_offset(&dir);
           vol->ram_cache->put(read_key, buf, doc->len, http_copy_hdr, (uint32_t)(o >> 32), (uint32_t)o);
+#ifdef CACHE_SSD
+          f.write_to_ramcache = true;
+#endif
         }
         if (!doc_len) {
           // keep a pointer to it. In case the state machine decides to
@@ -2123,6 +2207,71 @@ Lfree:
   return free_CacheVC(this);
 }
 
+#ifdef CACHE_SSD
+int
+CacheVC::removeSSD(int event, Event *e)
+{
+  NOWARN_UNUSED(e);
+  NOWARN_UNUSED(event);
+
+  cancel_trigger();
+  set_io_not_in_progress();
+  {
+    MUTEX_TRY_LOCK(lock, vol->mutex, mutex->thread_holding);
+    if (!lock) {
+      Debug("ssd_cache_trylock", "trylock ssd fail in removeSSD");
+      VC_SCHED_LOCK_RETRY();
+    }
+    if (_action.cancelled) {
+      goto Lfree;
+    }
+  Lread:
+    if (!buf)
+      goto Lcollision;
+    if (!dir_valid(vol, &dir)) {
+      last_collision = NULL;
+      goto Lcollision;
+    }
+    // check read completed correct FIXME: remove bad vols
+    if ((int) io.aio_result != (int) io.aiocb.aio_nbytes)
+      goto Ldone;
+    {
+      // verify that this is our document
+      Doc *doc = (Doc *) buf->data();
+      /* should be first_key not key..right?? */
+      if (doc->first_key == key) {
+        ink_assert(doc->magic == DOC_MAGIC);
+        if (dir_delete(&key, vol, &dir) > 0) {
+          goto Lremoved;
+        }
+        goto Ldone;
+      }
+    }
+  Lcollision:
+    // check for collision
+    if (dir_probe(&key, vol, &dir, &last_collision) > 0) {
+      Debug("ssd_cache_remove", "probe hit in ssd, and read");
+      int ret = do_read_call(&key);
+      if (ret == EVENT_RETURN)
+        goto Lread;
+      return ret;
+    } else {
+      Debug("ssd_cache_remove", "The object is not in ssd");
+      goto Lremoved;
+    }
+  Ldone:
+    CACHE_INCREMENT_DYN_STAT(cache_remove_failure_stat);
+  }
+  ink_debug_assert(!vol || this_ethread() != vol->mutex->thread_holding);
+  _action.continuation->handleEvent(CACHE_EVENT_REMOVE_FAILED, (void *) -ECACHE_NO_DOC);
+  goto Lfree;
+Lremoved:
+  _action.continuation->handleEvent(CACHE_EVENT_REMOVE, 0);
+Lfree:
+  return free_CacheVC(this);
+}
+#endif
+
 Action *
 Cache::remove(Continuation *cont, CacheKey *key, CacheFragType type,
               bool user_agents, bool link,
@@ -2138,6 +2287,35 @@ Cache::remove(Continuation *cont, CacheKey *key, CacheFragType type,
   }
 
   ink_assert(this);
+
+#ifdef CACHE_SSD
+  Vol *ssd_vol = key_to_vol(key, hostname, host_len, true);
+  if (ssd_vol != NULL)
+  {
+    Continuation *remove_ssd = new_CacheRemoveCont();
+    CACHE_TRY_LOCK(lock, remove_ssd->mutex, this_ethread());
+    ink_assert(lock);
+    Vol *vol = ssd_vol;
+    // coverity[var_decl]
+    Dir result;
+    dir_clear(&result);           // initialized here, set result empty so we can recognize missed lock
+    ProxyMutexPtr mutex = remove_ssd->mutex;
+
+    CacheVC *c = new_CacheVC(remove_ssd);
+    c->vio.op = VIO::NONE;
+    c->frag_type = type;
+    c->base_stat = cache_remove_active_stat;
+    CACHE_INCREMENT_DYN_STAT(c->base_stat + CACHE_STAT_ACTIVE);
+    c->first_key = c->key = *key;
+    c->vol = ssd_vol;
+    c->dir = result;
+    c->f.remove = 1;
+
+    SET_CONTINUATION_HANDLER(c, &CacheVC::removeSSD);
+    int ret = c->removeSSD(EVENT_IMMEDIATE, 0);
+    Debug("ssd_cache_remove", "%d\n", ret);
+  }
+#endif
 
   ProxyMutexPtr mutex = NULL;
   if (!cont)
@@ -2284,15 +2462,15 @@ cplist_reconfigure()
         gdisks[i]->delete_all_volumes();
       }
       if (gdisks[i]->cleared) {
-        uint64_t free_space = gdisks[i]->free_space * STORE_BLOCK_SIZE;
-        int vols = (free_space / MAX_VOL_SIZE) + 1;
-        for (int p = 0; p < vols; p++) {
-          off_t b = gdisks[i]->free_space / (vols - p);
-          Debug("cache_hosting", "blocks = %d\n", b);
-          DiskVolBlock *dpb = gdisks[i]->create_volume(0, b, CACHE_HTTP_TYPE);
-          ink_assert(dpb && dpb->len == (uint64_t)b);
-        }
-        ink_assert(gdisks[i]->free_space == 0);
+          uint64_t free_space = gdisks[i]->free_space * STORE_BLOCK_SIZE;
+          int vols = (free_space / MAX_VOL_SIZE) + 1; 
+          for (int p = 0; p < vols; ++p) {
+            off_t b = gdisks[i]->free_space / (vols - p);
+            Debug("cache_hosting", "blocks = %d\n", b);
+            DiskVolBlock *dpb = gdisks[i]->create_volume(0, b, CACHE_HTTP_TYPE);
+            ink_assert(dpb && dpb->len == (uint64_t)b);
+          }
+          ink_assert(gdisks[i]->free_space == 0);
       }
 
       ink_assert(gdisks[i]->header->num_volumes == 1);
@@ -2537,8 +2715,46 @@ rebuild_host_table(Cache *cache)
 
 // if generic_host_rec.vols == NULL, what do we do???
 Vol *
-Cache::key_to_vol(CacheKey *key, char *hostname, int host_len)
+Cache::key_to_vol(CacheKey *key, char *hostname, int host_len
+#ifdef CACHE_SSD
+    , int ssd_type
+#endif
+    )
 {
+#ifdef CACHE_SSD
+  if (ssd_type) {
+    if (0 == ssd_store.n_disks)
+      return NULL;
+    uint32_t h = (key->word(2) >> DIR_TAG_WIDTH) % VOL_HASH_TABLE_SIZE;
+    unsigned short *hash_table = ssd_hosttable->gen_host_rec.vol_hash_table;
+    CacheHostRecord *host_rec = &ssd_hosttable->gen_host_rec;
+
+    if (ssd_hosttable->m_numEntries > 0 && host_len) {
+      CacheHostResult res;
+      ssd_hosttable->Match(hostname, host_len, &res);
+      if (res.record) {
+        unsigned short *host_hash_table = res.record->vol_hash_table;
+        if (host_hash_table) {
+          if (is_debug_tag_set("ssd_cache_hosting")) {
+            char format_str[50];
+            snprintf(format_str, sizeof(format_str), "Volume: %%xd for host: %%.%ds", host_len);
+            Debug("ssd_cache_hosting", format_str, res.record, hostname);
+          }
+          return res.record->vols[host_hash_table[h]];
+        }
+      }
+    }
+    if (hash_table) {
+      if (is_debug_tag_set("ssd_cache_hosting")) {
+        char format_str[50];
+        snprintf(format_str, sizeof(format_str), "Generic volume: %%xd for host: %%.%ds", host_len);
+        Debug("ssd_cache_hosting", format_str, host_rec, hostname);
+      }
+      return host_rec->vols[hash_table[h]];
+    } else
+      return host_rec->vols[0];
+  } else {
+#endif
   uint32_t h = (key->word(2) >> DIR_TAG_WIDTH) % VOL_HASH_TABLE_SIZE;
   unsigned short *hash_table = hosttable->gen_host_rec.vol_hash_table;
   CacheHostRecord *host_rec = &hosttable->gen_host_rec;
@@ -2567,6 +2783,9 @@ Cache::key_to_vol(CacheKey *key, char *hostname, int host_len)
     return host_rec->vols[hash_table[h]];
   } else
     return host_rec->vols[0];
+#ifdef CACHE_SSD
+  }
+#endif
 }
 
 static void reg_int(const char *str, int stat, RecRawStatBlock *rsb, const char *prefix, RecRawStatSyncCb sync_cb=RecRawStatSyncSum) {
@@ -2599,6 +2818,11 @@ register_cache_stats(RecRawStatBlock *rsb, const char *prefix)
   REG_INT("read.active", cache_read_active_stat);
   REG_INT("read.success", cache_read_success_stat);
   REG_INT("read.failure", cache_read_failure_stat);
+#ifdef CACHE_SSD
+  REG_INT("ssd.read.active", cache_ssd_read_active_stat);
+  REG_INT("ssd.read.success", cache_ssd_read_success_stat);
+  REG_INT("ssd.read.failure", cache_ssd_read_failure_stat);
+#endif
   REG_INT("write.active", cache_write_active_stat);
   REG_INT("write.success", cache_write_success_stat);
   REG_INT("write.failure", cache_write_failure_stat);
@@ -2754,6 +2978,22 @@ ink_cache_init(ModuleVersion v)
     Warning("no cache disks specified in %s: cache disabled\n", p);
     //exit(1);
   }
+
+#ifdef CACHE_SSD
+  char ssd_path[PATH_NAME_MAX + 1];
+  char ssd_file[PATH_NAME_MAX + 1];
+  IOCORE_ReadConfigString(ssd_file, "proxy.config.cache.ssd_filename", PATH_NAME_MAX);
+  Layout::relative_to(ssd_path, PATH_NAME_MAX, Layout::get()->sysconfdir, ssd_file);
+  int ssd_fd = ::open(ssd_path, O_RDONLY);
+  if(ssd_fd < 0) {
+    Error("fail on opening ssd storage file %s\n", ssd_path);
+    return ;
+  }
+  if((err = ssd_store.read_config(ssd_fd))) {
+    Error("%s failed\n", err);
+    exit(1);
+  }
+#endif
 }
 
 #ifdef NON_MODULAR

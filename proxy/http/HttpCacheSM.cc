@@ -114,6 +114,11 @@ HttpCacheSM::state_cache_open_read(int event, void *data)
     ink_assert(cache_read_vc == NULL);
     open_read_cb = true;
     cache_read_vc = (CacheVConnection *) data;
+#ifdef CACHE_SSD
+    if (cache_read_vc->stat_ssd()) {
+      master_sm->t_state.doc_from_ssd = ((CacheVC *)cache_read_vc)->f.doc_from_ssd;
+    }
+#endif
     master_sm->handleEvent(event, data);
     break;
 

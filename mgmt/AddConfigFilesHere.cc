@@ -69,6 +69,7 @@ initializeRegistry()
   configFiles->addFile("log_hosts.config", false);
   configFiles->addFile("logs_xml.config", false);
   configFiles->addFile("storage.config", false);
+  configFiles->addFile("storage_ssd.config", false);
   configFiles->addFile("socks.config", false);
   configFiles->addFile("proxy.pac", false);
   configFiles->addFile("wpad.dat", false);

@@ -8816,6 +8816,12 @@ HttpTransact::update_size_and_time_stats(State* s, ink_hrtime total_time, ink_hr
   // times
   HTTP_SUM_TRANS_STAT(http_total_transactions_time_stat, total_time);
 
+#ifdef CACHE_SSD
+  if (s->doc_from_ssd) {
+    HTTP_SUM_TRANS_STAT(http_ssd_serve_total_size_stat, user_agent_response_header_size);
+    HTTP_SUM_TRANS_STAT(http_ssd_serve_total_size_stat, user_agent_response_body_size);
+  }
+#endif
   // sizes
   HTTP_SUM_TRANS_STAT(http_user_agent_request_header_total_size_stat, user_agent_request_header_size);
   HTTP_SUM_TRANS_STAT(http_user_agent_response_header_total_size_stat, user_agent_response_header_size);

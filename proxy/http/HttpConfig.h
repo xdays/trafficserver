@@ -164,6 +164,9 @@ enum
   http_request_taxonomy_i1_n1_m1_stat,
   http_icp_suggested_lookups_stat,
 
+#ifdef CACHE_SSD
+  http_ssd_serve_total_size_stat,
+#endif
   // document size stats
   http_user_agent_request_header_total_size_stat,
   http_user_agent_response_header_total_size_stat,

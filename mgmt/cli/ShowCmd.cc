@@ -2217,6 +2217,10 @@ ShowHttpStats()
   TSInt origin_server_response_header_total_size = -1;
   TSInt current_server_connections = -1;
   TSInt current_server_transactions = -1;
+#ifdef CACHE_SSD
+  TSInt ssd_serve_total_size = -1;
+  Cli_RecordGetInt("proxy.process.http.ssd_serve_total_size", &ssd_serve_total_size);
+#endif
   //get value
   Cli_RecordGetInt("proxy.process.http.user_agent_response_document_total_size",
                    &user_agent_response_document_total_size);
@@ -2235,6 +2239,9 @@ ShowHttpStats()
   Cli_Printf("--Client--\n");
   Cli_Printf("Total Document Bytes ----- %d MB\n", user_agent_response_document_total_size / (1024 * 1024));
   Cli_Printf("Total Header Bytes ------- %d MB\n", user_agent_response_header_total_size / (1024 * 1024));
+#ifdef CACHE_SSD
+  Cli_Printf("Total SSD Serve Bytes ---- %d MB\n", ssd_serve_total_size/ (1024 *1024));
+#endif
   Cli_Printf("Total Connections -------- %d\n", current_client_connections);
   Cli_Printf("Transactins In Progress -- %d\n", current_client_transactions);
   Cli_Printf("--Server--\n");
