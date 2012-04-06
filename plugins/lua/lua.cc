@@ -25,6 +25,8 @@ extern "C" {
 #include <lauxlib.h>
 }
 
+#include <unistd.h>
+
 static void *
 LuaAllocate(void * ud, void * ptr, size_t osize, size_t nsize)
 {
@@ -37,9 +39,9 @@ LuaAllocate(void * ud, void * ptr, size_t osize, size_t nsize)
 
   return TSrealloc(ptr, nsize);
 }
-    
+
 static int
-LuaDebug(lua_State * lua)
+TSLuaDebug(lua_State * lua)
 {
   const char * tag = luaL_checkstring(lua, 1);
   const char * message = luaL_checkstring(lua, 2);
@@ -54,9 +56,9 @@ struct LuaExport
   const char *  name;
 };
 
-static LuaExport LUAEXPORTS[] = 
+static const luaL_Reg LUAEXPORTS[] =
 {
-  { LuaDebug, "ts.debug"},
+  { "debug", TSLuaDebug },
   { NULL, NULL}
 };
 
@@ -78,10 +80,23 @@ TSRemapNewInstance(int argc, char * argv[], void ** ih, char * errbuf, int errbu
   }
 
   luaL_openlibs(lua);
+  luaL_register(lua, "ts", LUAEXPORTS);
 
-  for (const LuaExport * e = LUAEXPORTS; e->function != NULL; ++e) {
-    lua_pushcfunction(lua, e->function);
-    lua_setglobal(lua, e->name);
+  for (int i = 0; i < argc; ++i) {
+    if (access(argv[i], R_OK) == 0) {
+      TSDebug("lua", "%s loading lua file %s", __func__, argv[i]);
+      if (luaL_dofile(lua, argv[i]) != 0) {
+        // If the load failed, it should have pushed an error message.
+        TSError("lua load error: %s", lua_tostring(lua, -1));
+        lua_pop(lua, 1);
+      }
+    }
+  }
+
+  lua_getglobal(lua, "init");
+  if (lua_pcall(lua, 0, 1, 0) != 0) {
+    TSDebug("lua", "init failed: %s", lua_tostring(lua, -1));
+    lua_pop(lua, 1);
   }
 
   *ih = lua;
