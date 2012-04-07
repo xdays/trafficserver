@@ -107,6 +107,13 @@ void
 TSRemapDeleteInstance(void * ih)
 {
   lua_State * lua = (lua_State *)ih;
+
+  lua_getglobal(lua, "release");
+  if (lua_pcall(lua, 0, 1, 0) != 0) {
+    TSDebug("lua", "init failed: %s", lua_tostring(lua, -1));
+    lua_pop(lua, 1);
+  }
+
   lua_close(lua);
 }
 
