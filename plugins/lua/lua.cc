@@ -56,6 +56,88 @@ static const luaL_Reg LUAEXPORTS[] =
   { NULL, NULL}
 };
 
+static TSReturnCode
+LuaPluginInit(lua_State * lua)
+{
+  TSReturnCode status = TS_ERROR;
+
+  lua_getglobal(lua, "init");
+  if (lua_isnil(lua, -1)) {
+    // No "init" callback.
+    return TS_SUCCESS;
+  }
+
+  if (lua_pcall(lua, 0, 1, 0) != 0) {
+    TSDebug("lua", "init failed: %s", lua_tostring(lua, -1));
+    lua_pop(lua, 1);
+  }
+
+  // Return type is bool; check it and pop it.
+  if (lua_isboolean(lua, 1) && lua_isboolean(lua, 1)) {
+    status = TS_SUCCESS;
+  }
+
+  lua_pop(lua, 1);
+  return status;
+}
+
+static TSReturnCode
+LuaPluginRelease(lua_State * lua)
+{
+  lua_getglobal(lua, "release");
+  if (lua_isnil(lua, -1)) {
+    // No "release" callback.
+    return TS_SUCCESS;
+  }
+
+  if (lua_pcall(lua, 0, 0, 0) != 0) {
+    TSDebug("lua", "release failed: %s", lua_tostring(lua, -1));
+    lua_pop(lua, 1);
+  }
+
+  lua_close(lua);
+  return TS_SUCCESS;
+}
+
+static TSRemapStatus
+LuaPluginRemap(lua_State * lua, TSHttpTxn txn, TSRemapRequestInfo * rri)
+{
+  lua_Integer status = TSREMAP_ERROR;
+
+  lua_getglobal(lua, "remap");
+  if (lua_isnil(lua, -1)) {
+    // No "remap" callback, better continue.
+    return TSREMAP_NO_REMAP;
+  }
+
+  if (lua_pcall(lua, 0, 1, 0) != 0) {
+    TSDebug("lua", "remap failed: %s", lua_tostring(lua, -1));
+    lua_pop(lua, 1);
+    return TSREMAP_ERROR;
+  }
+
+  // Return type is integer. It must be one of the REMAP constants.
+  if (!lua_isnumber(lua, 1)) {
+    lua_pop(lua, 1);
+    return TSREMAP_ERROR;
+  }
+
+  status = lua_tointeger(lua, 1);
+  lua_pop(lua, 1);
+
+  // Lua remap plugins only get to say whether to continue the remap chain or to stop.
+  switch (status) {
+  case TSREMAP_DID_REMAP:
+  case TSREMAP_NO_REMAP_STOP:
+    return (TSRemapStatus)status;
+  case TSREMAP_NO_REMAP:
+  case TSREMAP_DID_REMAP_STOP:
+  case TSREMAP_ERROR:
+  default:
+    return TSREMAP_ERROR;
+  }
+}
+
 TSReturnCode
 TSRemapInit(TSRemapInterface * api_info, char * errbuf, int errbuf_size)
 {
@@ -83,7 +165,7 @@ TSRemapNewInstance(int argc, char * argv[], void ** ih, char * errbuf, int errbu
   TSReleaseAssert(lua_istable(lua, -1));
 
   // Push constants into the "ts" module.
-  lua_pushinteger(lua, TSREMAP_DID_REMAP);
+  lua_pushinteger(lua, TSREMAP_DID_REMAP_STOP);
   lua_setfield(lua, -2, "REMAP_COMPLETE");
 
   lua_pushinteger(lua, TSREMAP_DID_REMAP);
@@ -103,14 +185,13 @@ TSRemapNewInstance(int argc, char * argv[], void ** ih, char * errbuf, int errbu
     }
   }
 
-  lua_getglobal(lua, "init");
-  if (lua_pcall(lua, 0, 1, 0) != 0) {
-    TSDebug("lua", "init failed: %s", lua_tostring(lua, -1));
-    lua_pop(lua, 1);
+  if (LuaPluginInit(lua) == TS_SUCCESS) {
+    *ih = lua;
+    return TS_SUCCESS;
+  } else {
+    lua_close(lua);
+    return TS_ERROR;
   }
-
-  *ih = lua;
-  return TS_SUCCESS;
 }
 
 void
@@ -118,17 +199,12 @@ TSRemapDeleteInstance(void * ih)
 {
   lua_State * lua = (lua_State *)ih;
 
-  lua_getglobal(lua, "release");
-  if (lua_pcall(lua, 0, 1, 0) != 0) {
-    TSDebug("lua", "init failed: %s", lua_tostring(lua, -1));
-    lua_pop(lua, 1);
-  }
-
+  LuaPluginRelease(lua);
   lua_close(lua);
 }
 
 TSRemapStatus
-TSRemapDoRemap(void * ih, TSHttpTxn rh, TSRemapRequestInfo *rri)
+TSRemapDoRemap(void * ih, TSHttpTxn txn, TSRemapRequestInfo * rri)
 {
-  return TSREMAP_NO_REMAP;
+  return LuaPluginRemap((lua_State *)ih, txn, rri);
 }
