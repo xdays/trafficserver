@@ -50,12 +50,6 @@ TSLuaDebug(lua_State * lua)
   return 0;
 }
 
-struct LuaExport
-{
-  lua_CFunction function;
-  const char *  name;
-};
-
 static const luaL_Reg LUAEXPORTS[] =
 {
   { "debug", TSLuaDebug },
