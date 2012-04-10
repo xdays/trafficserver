@@ -80,7 +80,23 @@ TSRemapNewInstance(int argc, char * argv[], void ** ih, char * errbuf, int errbu
   }
 
   luaL_openlibs(lua);
+
+  // Register functions in the "ts" module.
   luaL_register(lua, "ts", LUAEXPORTS);
+
+  // Get the "ts" module table back on the stack.
+  lua_getglobal(lua, "ts");
+  TSReleaseAssert(lua_istable(lua, -1));
+
+  // Push constants into the "ts" module.
+  lua_pushinteger(lua, TSREMAP_DID_REMAP);
+  lua_setfield(lua, -2, "REMAP_COMPLETE");
+
+  lua_pushinteger(lua, TSREMAP_DID_REMAP);
+  lua_setfield(lua, -2, "REMAP_CONTINUE");
+
+  // Pop the "ts" module table.
+  lua_pop(lua, 1);
 
   for (int i = 0; i < argc; ++i) {
     if (access(argv[i], R_OK) == 0) {
