@@ -73,7 +73,7 @@ LuaPluginInit(lua_State * lua)
   }
 
   // Return type is bool; check it and pop it.
-  if (lua_isboolean(lua, 1) && lua_isboolean(lua, 1)) {
+  if (lua_isboolean(lua, 1) && lua_toboolean(lua, 1)) {
     status = TS_SUCCESS;
   }
 
