@@ -27,6 +27,8 @@ extern "C" {
 
 #include <unistd.h>
 
+extern int LuaApiInit(lua_State *);
+
 static void *
 LuaAllocate(void * ud, void * ptr, size_t osize, size_t nsize)
 {
@@ -39,22 +41,6 @@ LuaAllocate(void * ud, void * ptr, size_t osize, size_t nsize)
 
   return TSrealloc(ptr, nsize);
 }
-
-static int
-TSLuaDebug(lua_State * lua)
-{
-  const char * tag = luaL_checkstring(lua, 1);
-  const char * message = luaL_checkstring(lua, 2);
-
-  TSDebug(tag, "%s", message);
-  return 0;
-}
-
-static const luaL_Reg LUAEXPORTS[] =
-{
-  { "debug", TSLuaDebug },
-  { NULL, NULL}
-};
 
 static TSReturnCode
 LuaPluginInit(lua_State * lua)
@@ -157,22 +143,16 @@ TSRemapNewInstance(int argc, char * argv[], void ** ih, char * errbuf, int errbu
 
   luaL_openlibs(lua);
 
-  // Register functions in the "ts" module.
-  luaL_register(lua, "ts", LUAEXPORTS);
+  // Pull up the preload table.
+  lua_getglobal(lua, "package");
+  lua_getfield(lua, -1, "preload");
+  lua_remove(lua, -2);
 
-  // Get the "ts" module table back on the stack.
-  lua_getglobal(lua, "ts");
-  TSReleaseAssert(lua_istable(lua, -1));
+  // Register LuaApiInit to load the 'ts' package.
+  lua_pushcfunction(lua, LuaApiInit);
+  lua_setfield(lua, -2, "ts");
 
-  // Push constants into the "ts" module.
-  lua_pushinteger(lua, TSREMAP_DID_REMAP_STOP);
-  lua_setfield(lua, -2, "REMAP_COMPLETE");
-
-  lua_pushinteger(lua, TSREMAP_DID_REMAP);
-  lua_setfield(lua, -2, "REMAP_CONTINUE");
-
-  // Pop the "ts" module table.
-  lua_pop(lua, 1);
+  lua_pop(lua, -1);
 
   for (int i = 0; i < argc; ++i) {
     if (access(argv[i], R_OK) == 0) {
