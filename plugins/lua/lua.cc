@@ -27,7 +27,11 @@ extern "C" {
 
 #include <unistd.h>
 
+// Initialize the 'ts' module.
 extern int LuaApiInit(lua_State *);
+
+// Push a copy of the given URL.
+extern int LuaPushUrl(lua_State*, TSMBuffer, TSMLoc);
 
 static void *
 LuaAllocate(void * ud, void * ptr, size_t osize, size_t nsize)
@@ -96,7 +100,11 @@ LuaPluginRemap(lua_State * lua, TSHttpTxn txn, TSRemapRequestInfo * rri)
     return TSREMAP_NO_REMAP;
   }
 
-  if (lua_pcall(lua, 0, 1, 0) != 0) {
+  // XXX we should cache these ...
+  LuaPushUrl(lua, rri->requestBufp, rri->mapFromUrl);
+  LuaPushUrl(lua, rri->requestBufp, rri->mapToUrl);
+
+  if (lua_pcall(lua, 2, 1, 0) != 0) {
     TSDebug("lua", "remap failed: %s", lua_tostring(lua, -1));
     lua_pop(lua, 1);
     return TSREMAP_ERROR;
