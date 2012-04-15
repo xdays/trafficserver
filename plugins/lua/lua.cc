@@ -18,20 +18,8 @@
 
 #include <ts/ts.h>
 #include <ts/remap.h>
-
-extern "C" {
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-}
-
 #include <unistd.h>
-
-// Initialize the 'ts' module.
-extern int LuaApiInit(lua_State *);
-
-// Push a copy of the given URL.
-extern int LuaPushUrl(lua_State*, TSMBuffer, TSMLoc);
+#include "lapi.h"
 
 static void *
 LuaAllocate(void * ud, void * ptr, size_t osize, size_t nsize)

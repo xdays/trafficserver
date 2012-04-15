@@ -18,14 +18,7 @@
 
 #include <ts/ts.h>
 #include <ts/remap.h>
-
-extern "C" {
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-}
-
-#include <unistd.h>
+#include "lapi.h"
 
 int
 LuaPushUrl(lua_State * lua, TSMBuffer buffer, TSMLoc url)
