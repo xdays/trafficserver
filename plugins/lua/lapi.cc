@@ -67,6 +67,46 @@ LuaPushUrl(lua_State * lua, TSMBuffer buffer, TSMLoc url)
 }
 
 static int
+LuaRemapRedirect(lua_State * lua)
+{
+  TSRemapRequestInfo * rri;
+
+  rri = *(TSRemapRequestInfo **)luaL_checkudata(lua, 1, "ts.meta.rri");
+  luaL_checktype(lua, 2, LUA_TTABLE);
+
+  TSDebug("lua", "redirecting request %p", rri);
+
+  // XXX take the URL table argument and use it to rewrite rri->requestUrl ...
+
+  rri->redirect = 1;
+
+  // Return true back to Lua-space.
+  lua_pushboolean(lua, 1);
+  return 1;
+}
+
+static const luaL_Reg RRI[] =
+{
+  { "redirect", LuaRemapRedirect },
+  { NULL, NULL}
+};
+
+bool
+LuaPushRemapRequestInfo(lua_State * lua, TSRemapRequestInfo * rri)
+{
+  TSRemapRequestInfo ** ptr;
+
+  ptr = (TSRemapRequestInfo **)lua_newuserdata(lua, sizeof(TSRemapRequestInfo *));
+  *ptr = rri;
+
+  luaL_getmetatable(lua, "ts.meta.rri");
+  lua_setmetatable(lua, -2);
+
+  TSReleaseAssert(lua_isuserdata(lua, -1) == 1);
+  return true;
+}
+
+static int
 TSLuaDebug(lua_State * lua)
 {
   const char * tag = luaL_checkstring(lua, 1);
@@ -93,7 +133,6 @@ LuaApiInit(lua_State * lua)
   luaL_register(lua, NULL, LUAEXPORTS);
 
   // Push constants into the "ts" module.
-
   lua_pushstring(lua, TSTrafficServerVersionGet());
   lua_setfield(lua, -2, "VERSION");
 
@@ -111,6 +150,16 @@ LuaApiInit(lua_State * lua)
 
   lua_pushinteger(lua, TSREMAP_DID_REMAP);
   lua_setfield(lua, -2, "REMAP_CONTINUE");
+
+  // Register TSRemapRequestInfo metatable.
+  luaL_newmetatable(lua, "ts.meta.rri");
+  lua_pushvalue(lua, -1);
+  lua_setfield(lua, -2, "__index");
+
+  luaL_register(lua, NULL, RRI);
+
+  // Pop the metatable.
+  lua_pop(lua, 1);
 
   TSReleaseAssert(lua_istable(lua, -1) == 1);
   return 1;

@@ -91,8 +91,9 @@ LuaPluginRemap(lua_State * lua, TSHttpTxn txn, TSRemapRequestInfo * rri)
   // XXX we should cache these ...
   LuaPushUrl(lua, rri->requestBufp, rri->mapFromUrl);
   LuaPushUrl(lua, rri->requestBufp, rri->mapToUrl);
+  LuaPushRemapRequestInfo(lua, rri);
 
-  if (lua_pcall(lua, 2, 1, 0) != 0) {
+  if (lua_pcall(lua, 3, 1, 0) != 0) {
     TSDebug("lua", "remap failed: %s", lua_tostring(lua, -1));
     lua_pop(lua, 1);
     return TSREMAP_ERROR;

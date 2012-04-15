@@ -28,3 +28,5 @@ int LuaApiInit(lua_State * lua);
 // Push a copy of the given URL.
 bool LuaPushUrl(lua_State * lua, TSMBuffer buffer, TSMLoc url);
 
+// Push a wrapper object for the given TSRemapRequestInfo.
+bool LuaPushRemapRequestInfo(lua_State * lua, TSRemapRequestInfo * rri);
