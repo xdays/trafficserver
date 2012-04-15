@@ -20,7 +20,7 @@
 #include <ts/remap.h>
 #include "lapi.h"
 
-int
+bool
 LuaPushUrl(lua_State * lua, TSMBuffer buffer, TSMLoc url)
 {
   int len;

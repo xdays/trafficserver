@@ -26,5 +26,5 @@ extern "C" {
 int LuaApiInit(lua_State * lua);
 
 // Push a copy of the given URL.
-int LuaPushUrl(lua_State * lua, TSMBuffer buffer, TSMLoc url);
+bool LuaPushUrl(lua_State * lua, TSMBuffer buffer, TSMLoc url);
 
