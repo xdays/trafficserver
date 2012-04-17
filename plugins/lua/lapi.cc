@@ -35,8 +35,51 @@ LuaRemapRequest::alloc(lua_State * lua)
   luaL_getmetatable(lua, "ts.meta.rri");
   lua_setmetatable(lua, -2);
 
-    return rq;
+  return rq;
+}
+
+// Given a URL table on the top of the stack, pop it's values into the URL buffer.
+bool
+LuaPopUrl(lua_State * lua, TSMBuffer buffer, TSMLoc url)
+{
+  const char *  strval;
+  size_t        len;
+
+#define SET_URL_COMPONENT(name, setter) do { \
+  lua_getfield(lua, -1, name); \
+  if (!lua_isnil(lua, -1)) { \
+    strval = luaL_checklstring(lua, -1, &len); \
+    if (strval) { \
+      setter(buffer, url, strval, len); \
+    } \
+  } \
+  lua_pop(lua, 1); \
+} while (0)
+
+  // We ignore the 'href' field. When constructing URL tables, it's convenient, but it doesn't seem
+  // necessary here. Callers can easily construct the URL table.
+  SET_URL_COMPONENT("scheme", TSUrlSchemeSet);
+  SET_URL_COMPONENT("user", TSUrlUserSet);
+  SET_URL_COMPONENT("password", TSUrlPasswordSet);
+  SET_URL_COMPONENT("host", TSUrlHostSet);
+  SET_URL_COMPONENT("path", TSUrlPathSet);
+  SET_URL_COMPONENT("query", TSUrlHttpQuerySet);
+  SET_URL_COMPONENT("fragment", TSUrlHttpFragmentSet);
+
+  lua_getfield(lua, -1, "port");
+  if (lua_isnil(lua, -1)) {
+    TSDebug("lua", "port is nil?");
+  } else {
+    TSDebug("lua", "port is %d", (int)lua_tointeger(lua, -1));
+    TSUrlPortSet(buffer, url, luaL_checkint(lua, -1));
   }
+  lua_pop(lua, 1);
+
+  TSDebug("lua", "top of stack is %s", luaL_typename(lua, -1));
+
+#undef SET_URL_COMPONENT
+  return true;
+}
 
 bool
 LuaPushUrl(lua_State * lua, TSMBuffer buffer, TSMLoc url)
@@ -93,8 +136,9 @@ LuaRemapRedirect(lua_State * lua)
   luaL_checktype(lua, 2, LUA_TTABLE);
 
   TSDebug("lua", "redirecting request %p", rq->rri);
-
-  // XXX take the URL table argument and use it to rewrite rri->requestUrl ...
+  lua_pushvalue(lua, 2);
+  LuaPopUrl(lua, rq->rri->requestBufp, rq->rri->requestUrl);
+  lua_pop(lua, 1);
 
   // A redirect always terminates plugin chain evaluation.
   rq->rri->redirect = 1;
