@@ -20,6 +20,24 @@
 #include <ts/remap.h>
 #include "lapi.h"
 
+LuaRemapRequest *
+LuaRemapRequest::get(lua_State * lua, int index)
+{
+  return (LuaRemapRequest *)luaL_checkudata(lua, index, "ts.meta.rri");
+}
+
+LuaRemapRequest *
+LuaRemapRequest::alloc(lua_State * lua)
+{
+  LuaRemapRequest * rq;
+
+  rq = (LuaRemapRequest *)lua_newuserdata(lua, sizeof(LuaRemapRequest));
+  luaL_getmetatable(lua, "ts.meta.rri");
+  lua_setmetatable(lua, -2);
+
+    return rq;
+  }
+
 bool
 LuaPushUrl(lua_State * lua, TSMBuffer buffer, TSMLoc url)
 {
@@ -69,16 +87,18 @@ LuaPushUrl(lua_State * lua, TSMBuffer buffer, TSMLoc url)
 static int
 LuaRemapRedirect(lua_State * lua)
 {
-  TSRemapRequestInfo * rri;
+  LuaRemapRequest * rq;
 
-  rri = *(TSRemapRequestInfo **)luaL_checkudata(lua, 1, "ts.meta.rri");
+  rq = LuaRemapRequest::get(lua, 1);
   luaL_checktype(lua, 2, LUA_TTABLE);
 
-  TSDebug("lua", "redirecting request %p", rri);
+  TSDebug("lua", "redirecting request %p", rq->rri);
 
   // XXX take the URL table argument and use it to rewrite rri->requestUrl ...
 
-  rri->redirect = 1;
+  // A redirect always terminates plugin chain evaluation.
+  rq->rri->redirect = 1;
+  rq->status = TSREMAP_DID_REMAP_STOP;
 
   // Return true back to Lua-space.
   lua_pushboolean(lua, 1);
@@ -91,19 +111,17 @@ static const luaL_Reg RRI[] =
   { NULL, NULL}
 };
 
-bool
+LuaRemapRequest *
 LuaPushRemapRequestInfo(lua_State * lua, TSRemapRequestInfo * rri)
 {
-  TSRemapRequestInfo ** ptr;
+  LuaRemapRequest * rq;
 
-  ptr = (TSRemapRequestInfo **)lua_newuserdata(lua, sizeof(TSRemapRequestInfo *));
-  *ptr = rri;
-
-  luaL_getmetatable(lua, "ts.meta.rri");
-  lua_setmetatable(lua, -2);
+  rq = LuaRemapRequest::alloc(lua);
+  rq->rri = rri;
+  rq->status = TSREMAP_NO_REMAP;
 
   TSReleaseAssert(lua_isuserdata(lua, -1) == 1);
-  return true;
+  return rq;
 }
 
 static int

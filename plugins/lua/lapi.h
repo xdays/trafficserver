@@ -16,11 +16,23 @@
   limitations under the License.
 */
 
+#ifndef LUA_LAPI_H_
+#define LUA_LAPI_H_
+
 extern "C" {
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
 }
+
+struct LuaRemapRequest
+{
+  TSRemapRequestInfo * rri;
+  TSRemapStatus status;
+
+  static LuaRemapRequest * get(lua_State * lua, int index);
+  static LuaRemapRequest * alloc(lua_State * lua);
+};
 
 // Initialize the 'ts' module.
 int LuaApiInit(lua_State * lua);
@@ -29,4 +41,7 @@ int LuaApiInit(lua_State * lua);
 bool LuaPushUrl(lua_State * lua, TSMBuffer buffer, TSMLoc url);
 
 // Push a wrapper object for the given TSRemapRequestInfo.
-bool LuaPushRemapRequestInfo(lua_State * lua, TSRemapRequestInfo * rri);
+LuaRemapRequest *
+LuaPushRemapRequestInfo(lua_State * lua, TSRemapRequestInfo * rri);
+
+#endif // LUA_LAPI_H_

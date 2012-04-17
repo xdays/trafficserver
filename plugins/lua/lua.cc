@@ -80,7 +80,7 @@ LuaPluginRelease(lua_State * lua)
 static TSRemapStatus
 LuaPluginRemap(lua_State * lua, TSHttpTxn txn, TSRemapRequestInfo * rri)
 {
-  lua_Integer status = TSREMAP_ERROR;
+  LuaRemapRequest * rq;
 
   lua_getglobal(lua, "remap");
   if (lua_isnil(lua, -1)) {
@@ -88,37 +88,23 @@ LuaPluginRemap(lua_State * lua, TSHttpTxn txn, TSRemapRequestInfo * rri)
     return TSREMAP_NO_REMAP;
   }
 
-  // XXX we should cache these ...
+  // XXX The 'to' and 'from' URLs are supposed to be static so we can cache them somewhere
+  // in the Lua state.
   LuaPushUrl(lua, rri->requestBufp, rri->mapFromUrl);
   LuaPushUrl(lua, rri->requestBufp, rri->mapToUrl);
-  LuaPushRemapRequestInfo(lua, rri);
 
-  if (lua_pcall(lua, 3, 1, 0) != 0) {
+  // XXX We can also cache the RemapRequestInfo in the Lua state. We we just need to reset
+  // the rri pointer and status.
+  rq = LuaPushRemapRequestInfo(lua, rri);
+
+  if (lua_pcall(lua, 3, 0, 0) != 0) {
     TSDebug("lua", "remap failed: %s", lua_tostring(lua, -1));
     lua_pop(lua, 1);
     return TSREMAP_ERROR;
   }
 
-  // Return type is integer. It must be one of the REMAP constants.
-  if (!lua_isnumber(lua, 1)) {
-    lua_pop(lua, 1);
-    return TSREMAP_ERROR;
-  }
-
-  status = lua_tointeger(lua, 1);
-  lua_pop(lua, 1);
-
-  // Lua remap plugins only get to say whether to continue the remap chain or to stop.
-  switch (status) {
-  case TSREMAP_DID_REMAP:
-  case TSREMAP_NO_REMAP_STOP:
-    return (TSRemapStatus)status;
-  case TSREMAP_NO_REMAP:
-  case TSREMAP_DID_REMAP_STOP:
-  case TSREMAP_ERROR:
-  default:
-    return TSREMAP_ERROR;
-  }
+  // XXX can we guarantee that rq has not been garbage collected?
+  return rq->status;
 }
 
 TSReturnCode
