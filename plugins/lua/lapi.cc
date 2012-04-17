@@ -67,15 +67,10 @@ LuaPopUrl(lua_State * lua, TSMBuffer buffer, TSMLoc url)
   SET_URL_COMPONENT("fragment", TSUrlHttpFragmentSet);
 
   lua_getfield(lua, -1, "port");
-  if (lua_isnil(lua, -1)) {
-    TSDebug("lua", "port is nil?");
-  } else {
-    TSDebug("lua", "port is %d", (int)lua_tointeger(lua, -1));
+  if (!lua_isnil(lua, -1)) {
     TSUrlPortSet(buffer, url, luaL_checkint(lua, -1));
   }
   lua_pop(lua, 1);
-
-  TSDebug("lua", "top of stack is %s", luaL_typename(lua, -1));
 
 #undef SET_URL_COMPONENT
   return true;
