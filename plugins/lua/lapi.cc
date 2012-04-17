@@ -149,9 +149,31 @@ LuaRemapRedirect(lua_State * lua)
   return 1;
 }
 
+static int
+LuaRemapRewrite(lua_State * lua)
+{
+  LuaRemapRequest * rq;
+
+  rq = LuaRemapRequest::get(lua, 1);
+  luaL_checktype(lua, 2, LUA_TTABLE);
+
+  TSDebug("lua", "rewriting request %p", rq->rri);
+  lua_pushvalue(lua, 2);
+  LuaPopUrl(lua, rq->rri->requestBufp, rq->rri->requestUrl);
+  lua_pop(lua, 1);
+
+  // A rewrite updates the request URL but never terminates plugin chain evaluation.
+  rq->status = TSREMAP_DID_REMAP;
+
+  // Return true back to Lua-space.
+  lua_pushboolean(lua, 1);
+  return 1;
+}
+
 static const luaL_Reg RRI[] =
 {
   { "redirect", LuaRemapRedirect },
+  { "rewrite", LuaRemapRewrite },
   { NULL, NULL}
 };
 
