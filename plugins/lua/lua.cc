@@ -145,8 +145,10 @@ TSRemapNewInstance(int argc, char * argv[], void ** ih, char * errbuf, int errbu
       TSDebug("lua", "%s loading lua file %s", __func__, argv[i]);
       if (luaL_dofile(lua, argv[i]) != 0) {
         // If the load failed, it should have pushed an error message.
-        TSError("lua load error: %s", lua_tostring(lua, -1));
+        TSError("error loading %s: %s", argv[i], lua_tostring(lua, -1));
         lua_pop(lua, 1);
+        lua_close(lua);
+        return TS_ERROR;
       }
     }
   }
