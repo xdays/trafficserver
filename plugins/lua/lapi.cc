@@ -131,6 +131,7 @@ LuaRemapRedirect(lua_State * lua)
   luaL_checktype(lua, 2, LUA_TTABLE);
 
   TSDebug("lua", "redirecting request %p", rq->rri);
+
   lua_pushvalue(lua, 2);
   LuaPopUrl(lua, rq->rri->requestBufp, rq->rri->requestUrl);
   lua_pop(lua, 1);
@@ -153,6 +154,7 @@ LuaRemapRewrite(lua_State * lua)
   luaL_checktype(lua, 2, LUA_TTABLE);
 
   TSDebug("lua", "rewriting request %p", rq->rri);
+
   lua_pushvalue(lua, 2);
   LuaPopUrl(lua, rq->rri->requestBufp, rq->rri->requestUrl);
   lua_pop(lua, 1);
@@ -165,20 +167,51 @@ LuaRemapRewrite(lua_State * lua)
   return 1;
 }
 
+static int
+LuaRemapReject(lua_State * lua)
+{
+  LuaRemapRequest * rq;
+  int status;
+  const char * body = NULL;
+
+  rq = LuaRemapRequest::get(lua, 1);
+  status = luaL_checkint(lua, 2);
+  if (!lua_isnoneornil(lua, 3)) {
+    body = luaL_checkstring(lua, 3);
+  }
+
+  TSDebug("lua", "rejecting request %p with status %d", rq->rri, status);
+
+  TSHttpTxnSetHttpRetStatus(rq->txn, (TSHttpStatus)status);
+  if (body && *body) {
+    // XXX Dubiously guess the content type from the body. This doesn't actually seem to work
+    // so it doesn't matter that our guess is pretty bad.
+    int isplain = (*body != '<');
+    TSHttpTxnSetHttpRetBody(rq->txn, body, isplain);
+  }
+
+  // A reject terminates plugin chain evaluation but does not update the request URL.
+  rq->status = TSREMAP_NO_REMAP_STOP;
+
+  return 1;
+}
+
 static const luaL_Reg RRI[] =
 {
   { "redirect", LuaRemapRedirect },
   { "rewrite", LuaRemapRewrite },
+  { "reject", LuaRemapReject },
   { NULL, NULL}
 };
 
 LuaRemapRequest *
-LuaPushRemapRequestInfo(lua_State * lua, TSRemapRequestInfo * rri)
+LuaPushRemapRequestInfo(lua_State * lua, TSHttpTxn txn, TSRemapRequestInfo * rri)
 {
   LuaRemapRequest * rq;
 
   rq = LuaRemapRequest::alloc(lua);
   rq->rri = rri;
+  rq->txn = txn;
   rq->status = TSREMAP_NO_REMAP;
 
   TSReleaseAssert(lua_isuserdata(lua, -1) == 1);

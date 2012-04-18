@@ -27,8 +27,9 @@ extern "C" {
 
 struct LuaRemapRequest
 {
-  TSRemapRequestInfo * rri;
-  TSRemapStatus status;
+  TSRemapRequestInfo *  rri;
+  TSHttpTxn             txn;
+  TSRemapStatus         status;
 
   static LuaRemapRequest * get(lua_State * lua, int index);
   static LuaRemapRequest * alloc(lua_State * lua);
@@ -42,6 +43,6 @@ bool LuaPushUrl(lua_State * lua, TSMBuffer buffer, TSMLoc url);
 
 // Push a wrapper object for the given TSRemapRequestInfo.
 LuaRemapRequest *
-LuaPushRemapRequestInfo(lua_State * lua, TSRemapRequestInfo * rri);
+LuaPushRemapRequestInfo(lua_State * lua, TSHttpTxn txn, TSRemapRequestInfo * rri);
 
 #endif // LUA_LAPI_H_

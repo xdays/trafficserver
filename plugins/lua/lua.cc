@@ -19,6 +19,7 @@
 #include <ts/ts.h>
 #include <ts/remap.h>
 #include <unistd.h>
+#include <pthread.h>
 #include "lapi.h"
 
 static void *
@@ -88,6 +89,8 @@ LuaPluginRemap(lua_State * lua, TSHttpTxn txn, TSRemapRequestInfo * rri)
     return TSREMAP_NO_REMAP;
   }
 
+  TSDebug("lua", "handling request %p on thread 0x%llx", rri, (unsigned long long)pthread_self());
+
   // XXX The 'to' and 'from' URLs are supposed to be static so we can cache them somewhere
   // in the Lua state.
   LuaPushUrl(lua, rri->requestBufp, rri->mapFromUrl);
@@ -95,7 +98,7 @@ LuaPluginRemap(lua_State * lua, TSHttpTxn txn, TSRemapRequestInfo * rri)
 
   // XXX We can also cache the RemapRequestInfo in the Lua state. We we just need to reset
   // the rri pointer and status.
-  rq = LuaPushRemapRequestInfo(lua, rri);
+  rq = LuaPushRemapRequestInfo(lua, txn, rri);
 
   if (lua_pcall(lua, 3, 0, 0) != 0) {
     TSDebug("lua", "remap failed: %s", lua_tostring(lua, -1));
