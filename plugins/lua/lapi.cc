@@ -196,11 +196,22 @@ LuaRemapReject(lua_State * lua)
   return 1;
 }
 
+static int
+LuaRemapUrl(lua_State * lua)
+{
+  LuaRemapRequest * rq;
+
+  rq = LuaRemapRequest::get(lua, 1);
+  LuaPushUrl(lua, rq->rri->requestBufp, rq->rri->requestUrl);
+  return 1;
+}
+
 static const luaL_Reg RRI[] =
 {
   { "redirect", LuaRemapRedirect },
   { "rewrite", LuaRemapRewrite },
   { "reject", LuaRemapReject },
+  { "url", LuaRemapUrl },
   { NULL, NULL}
 };
 
