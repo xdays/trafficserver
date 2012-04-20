@@ -111,6 +111,8 @@ LuaPluginRemap(lua_State * lua, TSHttpTxn txn, TSRemapRequestInfo * rri)
 
   // XXX The 'to' and 'from' URLs are supposed to be static so we can cache them somewhere
   // in the Lua state.
+  // XXX Do we really need to pass this at all? You can get the current URL from the request, so
+  // there's not really a need for these that I can see ...
   LuaPushUrl(lua, rri->requestBufp, rri->mapFromUrl);
   LuaPushUrl(lua, rri->requestBufp, rri->mapToUrl);
 
