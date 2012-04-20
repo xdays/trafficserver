@@ -19,8 +19,11 @@
 #include <ts/ts.h>
 #include <ts/remap.h>
 #include <unistd.h>
+#include <string.h>
 #include <pthread.h>
 #include "lapi.h"
+
+static pthread_key_t LuaStateKey;
 
 static void *
 LuaAllocate(void * ud, void * ptr, size_t osize, size_t nsize)
@@ -110,21 +113,14 @@ LuaPluginRemap(lua_State * lua, TSHttpTxn txn, TSRemapRequestInfo * rri)
   return rq->status;
 }
 
-TSReturnCode
-TSRemapInit(TSRemapInterface * api_info, char * errbuf, int errbuf_size)
-{
-  TSDebug("lua", "loading lua plugin");
-  return TS_SUCCESS;
-}
-
-TSReturnCode
-TSRemapNewInstance(int argc, char * argv[], void ** ih, char * errbuf, int errbuf_size)
+static lua_State *
+LuaPluginNewState(void)
 {
   lua_State * lua;
 
   lua = lua_newstate(LuaAllocate, NULL);
   if (lua == NULL) {
-    return TS_ERROR;
+    return NULL;
   }
 
   luaL_openlibs(lua);
@@ -132,26 +128,108 @@ TSRemapNewInstance(int argc, char * argv[], void ** ih, char * errbuf, int errbu
   // Pull up the preload table.
   lua_getglobal(lua, "package");
   lua_getfield(lua, -1, "preload");
+
+  // Pop the 'package' table.
   lua_remove(lua, -2);
 
   // Register LuaApiInit to load the 'ts' package.
   lua_pushcfunction(lua, LuaApiInit);
   lua_setfield(lua, -2, "ts");
 
+  // Pop the 'preload' table.
   lua_pop(lua, -1);
 
-  for (int i = 0; i < argc; ++i) {
+  return lua;
+}
+
+static lua_State *
+LuaPluginNewState(lua_State * orig)
+{
+  lua_State * lua;
+
+  lua = LuaPluginNewState();
+  if (lua == NULL) {
+    return NULL;
+  }
+
+  // Load all the files we loaded to create the original state.
+  lua_getglobal(orig, "__ts_remap_files");
+
+  for (int i = 1; ; ++i) {
+    const char * path;
+    lua_rawgeti(orig, -1, i);
+    path = lua_tostring(orig, -1);
+    if (luaL_dofile(lua, path) != 0) {
+      // If the load failed, it should have pushed an error message.
+      TSError("failed to load Lua file %s: %s", path, lua_tostring(lua, -1));
+      lua_close(lua);
+      lua_pop(orig, 2);
+      return NULL;
+    }
+
+    lua_pop(orig, 1);
+  }
+
+  // Pop the files table.
+  lua_pop(orig, 1);
+
+  if (LuaPluginInit(lua) == TS_SUCCESS) {
+    return lua;
+  } else {
+    lua_close(lua);
+    return NULL;
+  }
+}
+
+void
+TSRemapDeleteInstance(void * ih)
+{
+  lua_State * lua = (lua_State *)ih;
+
+  if (lua) {
+    LuaPluginRelease(lua);
+    lua_close(lua);
+  }
+}
+
+TSReturnCode
+TSRemapInit(TSRemapInterface * api_info, char * errbuf, int errbuf_size)
+{
+  TSDebug("lua", "loading lua plugin");
+  TSReleaseAssert(pthread_key_create(&LuaStateKey, TSRemapDeleteInstance) == 0);
+  return TS_SUCCESS;
+}
+
+TSReturnCode
+TSRemapNewInstance(int argc, char * argv[], void ** ih, char * errbuf, int errsz)
+{
+  lua_State * lua;
+
+  lua = LuaPluginNewState();
+  if (lua == NULL) {
+    return TS_ERROR;
+  }
+
+  // Push a table to save the files that we load.
+  lua_newtable(lua);
+
+  for (int i = 0, j = 0; i < argc; ++i) {
     if (access(argv[i], R_OK) == 0) {
       TSDebug("lua", "%s loading lua file %s", __func__, argv[i]);
       if (luaL_dofile(lua, argv[i]) != 0) {
         // If the load failed, it should have pushed an error message.
-        TSError("error loading %s: %s", argv[i], lua_tostring(lua, -1));
-        lua_pop(lua, 1);
+        strncpy(errbuf, lua_tostring(lua, -1), errsz);
         lua_close(lua);
         return TS_ERROR;
       }
+
+      lua_pushstring(lua, argv[i]);
+      lua_rawseti(lua, -2, ++j);
     }
   }
+
+  // Push the table we loaded into the globals.
+  lua_setglobal(lua, "__ts_remap_files");
 
   if (LuaPluginInit(lua) == TS_SUCCESS) {
     *ih = lua;
@@ -162,17 +240,19 @@ TSRemapNewInstance(int argc, char * argv[], void ** ih, char * errbuf, int errbu
   }
 }
 
-void
-TSRemapDeleteInstance(void * ih)
-{
-  lua_State * lua = (lua_State *)ih;
-
-  LuaPluginRelease(lua);
-  lua_close(lua);
-}
-
 TSRemapStatus
 TSRemapDoRemap(void * ih, TSHttpTxn txn, TSRemapRequestInfo * rri)
 {
-  return LuaPluginRemap((lua_State *)ih, txn, rri);
+  lua_State * orig;
+  lua_State * lua;
+
+  // Find or clone the per-thread Lua state.
+  orig = (lua_State *)ih;
+  lua = (lua_State *)pthread_getspecific(LuaStateKey);
+  if (!lua) {
+    lua = LuaPluginNewState(orig);
+    pthread_setspecific(LuaStateKey, lua);
+  }
+
+  return LuaPluginRemap(lua, txn, rri);
 }
