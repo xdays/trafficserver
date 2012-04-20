@@ -21,9 +21,24 @@
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
+#include <string>
+#include <vector>
 #include "lapi.h"
 
 static pthread_key_t LuaStateKey;
+
+struct LuaPluginState
+{
+  typedef std::vector<std::string> pathlist;
+
+  LuaPluginState(unsigned argc, const char ** argv) {
+    for (unsigned i = 0; i < argc; ++i) {
+      paths.push_back(argv[i]);
+    }
+  }
+
+  pathlist paths;
+};
 
 static void *
 LuaAllocate(void * ud, void * ptr, size_t osize, size_t nsize)
@@ -143,7 +158,7 @@ LuaPluginNewState(void)
 }
 
 static lua_State *
-LuaPluginNewState(lua_State * orig)
+LuaPluginNewState(LuaPluginState * remap)
 {
   lua_State * lua;
 
@@ -152,26 +167,18 @@ LuaPluginNewState(lua_State * orig)
     return NULL;
   }
 
-  // Load all the files we loaded to create the original state.
-  lua_getglobal(orig, "__ts_remap_files");
-
-  for (int i = 1; ; ++i) {
-    const char * path;
-    lua_rawgeti(orig, -1, i);
-    path = lua_tostring(orig, -1);
-    if (luaL_dofile(lua, path) != 0) {
-      // If the load failed, it should have pushed an error message.
-      TSError("failed to load Lua file %s: %s", path, lua_tostring(lua, -1));
-      lua_close(lua);
-      lua_pop(orig, 2);
-      return NULL;
+  for (LuaPluginState::pathlist::const_iterator p = remap->paths.begin(); p < remap->paths.end(); ++p) {
+    if (access(p->c_str(), F_OK) != 0) {
+      continue;
     }
 
-    lua_pop(orig, 1);
+    if (luaL_dofile(lua, p->c_str()) != 0) {
+      // If the load failed, it should have pushed an error message.
+      TSDebug("lua", "failed to load Lua file %s: %s", p->c_str(), lua_tostring(lua, -1));
+      lua_close(lua);
+      return NULL;
+    }
   }
-
-  // Pop the files table.
-  lua_pop(orig, 1);
 
   if (LuaPluginInit(lua) == TS_SUCCESS) {
     return lua;
@@ -203,54 +210,37 @@ TSRemapInit(TSRemapInterface * api_info, char * errbuf, int errbuf_size)
 TSReturnCode
 TSRemapNewInstance(int argc, char * argv[], void ** ih, char * errbuf, int errsz)
 {
+  LuaPluginState * remap;
   lua_State * lua;
 
-  lua = LuaPluginNewState();
-  if (lua == NULL) {
+  // Copy the plugin arguments so that we can use them to allocate a per-thread Lua state. It would be cleaner
+  // to clone a Lua state, but there's no built-in way to do that, and to implement that ourselves would require
+  // locking the template state (we need to manipulate the stack to copy values out).
+  remap = new LuaPluginState((unsigned)argc, (const char **)argv);
+
+  // Test whether we can successfully load the Lua program.
+  lua = LuaPluginNewState(remap);
+  if (!lua) {
+    delete remap;
     return TS_ERROR;
   }
 
-  // Push a table to save the files that we load.
-  lua_newtable(lua);
-
-  for (int i = 0, j = 0; i < argc; ++i) {
-    if (access(argv[i], R_OK) == 0) {
-      TSDebug("lua", "%s loading lua file %s", __func__, argv[i]);
-      if (luaL_dofile(lua, argv[i]) != 0) {
-        // If the load failed, it should have pushed an error message.
-        strncpy(errbuf, lua_tostring(lua, -1), errsz);
-        lua_close(lua);
-        return TS_ERROR;
-      }
-
-      lua_pushstring(lua, argv[i]);
-      lua_rawseti(lua, -2, ++j);
-    }
-  }
-
-  // Push the table we loaded into the globals.
-  lua_setglobal(lua, "__ts_remap_files");
-
-  if (LuaPluginInit(lua) == TS_SUCCESS) {
-    *ih = lua;
-    return TS_SUCCESS;
-  } else {
-    lua_close(lua);
-    return TS_ERROR;
-  }
+  *ih = remap;
+  return TS_SUCCESS;
 }
 
 TSRemapStatus
 TSRemapDoRemap(void * ih, TSHttpTxn txn, TSRemapRequestInfo * rri)
 {
-  lua_State * orig;
   lua_State * lua;
 
   // Find or clone the per-thread Lua state.
-  orig = (lua_State *)ih;
   lua = (lua_State *)pthread_getspecific(LuaStateKey);
   if (!lua) {
-    lua = LuaPluginNewState(orig);
+    LuaPluginState * remap = (LuaPluginState *)ih;
+
+    TSDebug("lua", "allocating new Lua state on thread 0x%llx", (unsigned long long)pthread_self());
+    lua = LuaPluginNewState(remap);
     pthread_setspecific(LuaStateKey, lua);
   }
 
