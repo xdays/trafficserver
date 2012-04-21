@@ -234,6 +234,21 @@ LuaRemapIndex(lua_State * lua)
 
   TSDebug("lua", "%s[%s]", __func__, index);
 
+  // XXX When we set __index in the metatable, Lua routes all method calls through here rather than checking for the
+  // existing key first. That's a bit surprising and I wonder whether there's a better way to handle this.
+
+  // Get the userdata's metatable and look up the index in it.
+  lua_getmetatable(lua, 1);
+  lua_getfield(lua, -1, index);
+  if (!lua_isnoneornil(lua, -1)) {
+    // Pop the metatable, leaving the field value on top.
+    lua_remove(lua, -2);
+    return 1;
+  }
+
+  // Pop the field value and the metatable.
+  lua_pop(lua, 2);
+
   if (strcmp(index, "headers") != 0) {
     return 0;
   }
@@ -246,7 +261,13 @@ LuaRemapIndex(lua_State * lua)
   if (lua_isnoneornil(lua, -1)) {
     TSDebug("lua", "populating '%s' field", index);
     lua_pop(lua, 1);
-    lua_pushstring(lua, "ping");
+
+    // Make a new header table.
+    lua_newtable(lua);
+    luaL_getmetatable(lua, "ts.meta.headers");
+    lua_setmetatable(lua, -2);
+
+    // Set it for the 'headers' index and push it on the stack.
     lua_setfield(lua, -2, index);
     lua_getfield(lua, -1, index);
   }
