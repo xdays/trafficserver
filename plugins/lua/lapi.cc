@@ -18,7 +18,11 @@
 
 #include <ts/ts.h>
 #include <ts/remap.h>
+#include <string.h>
 #include "lapi.h"
+
+// Return the type name string for the given index.
+#define LTYPEOF(L, index) lua_typename(L, lua_type(L, index))
 
 LuaRemapRequest *
 LuaRemapRequest::get(lua_State * lua, int index)
@@ -35,7 +39,20 @@ LuaRemapRequest::alloc(lua_State * lua)
   luaL_getmetatable(lua, "ts.meta.rri");
   lua_setmetatable(lua, -2);
 
+  // Stash a new table as the environment for this object. We will use it later for __index.
+  lua_newtable(lua);
+  TSReleaseAssert(lua_setfenv(lua, -2));
+
   return rq;
+}
+
+static void
+LuaPushMetatable(lua_State * lua, const char * name, const luaL_Reg * exports)
+{
+  luaL_newmetatable(lua, name);
+  lua_pushvalue(lua, -1);
+  lua_setfield(lua, -2, "__index");
+  luaL_register(lua, NULL, exports);
 }
 
 // Given a URL table on the top of the stack, pop it's values into the URL buffer.
@@ -206,13 +223,84 @@ LuaRemapUrl(lua_State * lua)
   return 1;
 }
 
+static int
+LuaRemapIndex(lua_State * lua)
+{
+  LuaRemapRequest * rq;
+  const char * index;
+
+  rq = LuaRemapRequest::get(lua, 1);
+  index = luaL_checkstring(lua, 2);
+
+  TSDebug("lua", "%s[%s]", __func__, index);
+
+  if (strcmp(index, "headers") != 0) {
+    return 0;
+  }
+
+  lua_getfenv(lua, 1);
+  TSDebug("lua", "-1 is %s", LTYPEOF(lua, -1));
+
+  // Get the requested field from the environment table.
+  lua_getfield(lua, -1, index);
+  if (lua_isnoneornil(lua, -1)) {
+    TSDebug("lua", "populating '%s' field", index);
+    lua_pop(lua, 1);
+    lua_pushstring(lua, "ping");
+    lua_setfield(lua, -2, index);
+    lua_getfield(lua, -1, index);
+  }
+
+  // Pop the environment table, leaving the field value on top.
+  lua_remove(lua, -2);
+  return 1;
+}
+
 static const luaL_Reg RRI[] =
 {
   { "redirect", LuaRemapRedirect },
   { "rewrite", LuaRemapRewrite },
   { "reject", LuaRemapReject },
   { "url", LuaRemapUrl },
+  { "__index", LuaRemapIndex },
   { NULL, NULL}
+};
+
+static int
+LuaRemapHeaderIndex(lua_State * lua)
+{
+  const char * index;
+
+  TSAssert(lua_istable(lua, 1));
+  index = luaL_checkstring(lua, 2);
+
+  TSDebug("lua", "%s[%s]", __func__, index);
+
+  lua_pushboolean(lua, 1);
+  return 1;
+}
+
+static int
+LuaRemapHeaderNewIndex(lua_State * lua)
+{
+  const char * index;
+  const char * value;
+
+  TSAssert(lua_istable(lua, 1));
+  index = luaL_checkstring(lua, 2);
+  value = luaL_checkstring(lua, 3);
+
+  TSDebug("lua", "%s[%s] = %s", __func__, index, value);
+
+  lua_pushboolean(lua, 1);
+  return 1;
+}
+
+static const luaL_Reg HEADERS[] =
+{
+  { "__index", LuaRemapHeaderIndex },
+  { "__newindex", LuaRemapHeaderNewIndex },
+  { NULL, NULL }
 };
 
 LuaRemapRequest *
@@ -275,12 +363,12 @@ LuaApiInit(lua_State * lua)
   lua_setfield(lua, -2, "REMAP_CONTINUE");
 
   // Register TSRemapRequestInfo metatable.
-  luaL_newmetatable(lua, "ts.meta.rri");
-  lua_pushvalue(lua, -1);
-  lua_setfield(lua, -2, "__index");
+  LuaPushMetatable(lua, "ts.meta.rri", RRI);
+  // Pop the metatable.
+  lua_pop(lua, 1);
 
-  luaL_register(lua, NULL, RRI);
-
+  // Register the remap headers metatable.
+  LuaPushMetatable(lua, "ts.meta.rri.headers", HEADERS);
   // Pop the metatable.
   lua_pop(lua, 1);
 
