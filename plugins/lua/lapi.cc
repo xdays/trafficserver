@@ -24,6 +24,26 @@
 // Return the type name string for the given index.
 #define LTYPEOF(L, index) lua_typename(L, lua_type(L, index))
 
+struct LuaRemapHeaders
+{
+  TSMBuffer buffer;
+  TSMLoc    headers;
+
+  static LuaRemapHeaders * get(lua_State * lua, int index) {
+    return (LuaRemapHeaders *)luaL_checkudata(lua, index, "ts.meta.rri.headers");
+  }
+
+  static LuaRemapHeaders * alloc(lua_State * lua) {
+    LuaRemapHeaders * hdrs;
+
+    hdrs = (LuaRemapHeaders *)lua_newuserdata(lua, sizeof(LuaRemapHeaders));
+    luaL_getmetatable(lua, "ts.meta.rri.headers");
+    lua_setmetatable(lua, -2);
+
+    return hdrs;
+  }
+};
+
 LuaRemapRequest *
 LuaRemapRequest::get(lua_State * lua, int index)
 {
@@ -259,13 +279,13 @@ LuaRemapIndex(lua_State * lua)
   // Get the requested field from the environment table.
   lua_getfield(lua, -1, index);
   if (lua_isnoneornil(lua, -1)) {
+    LuaRemapHeaders * hdrs;
     TSDebug("lua", "populating '%s' field", index);
     lua_pop(lua, 1);
 
-    // Make a new header table.
-    lua_newtable(lua);
-    luaL_getmetatable(lua, "ts.meta.headers");
-    lua_setmetatable(lua, -2);
+    hdrs = LuaRemapHeaders::alloc(lua);
+    hdrs->buffer = rq->rri->requestBufp;
+    hdrs->headers = rq->rri->requestHdrp;
 
     // Set it for the 'headers' index and push it on the stack.
     lua_setfield(lua, -2, index);
@@ -290,14 +310,26 @@ static const luaL_Reg RRI[] =
 static int
 LuaRemapHeaderIndex(lua_State * lua)
 {
-  const char * index;
+  LuaRemapHeaders * hdrs;
+  const char *      index;
+  const char *      value;
+  int               vlen;
+  TSMLoc            field;
 
-  TSAssert(lua_istable(lua, 1));
+
+  hdrs = LuaRemapHeaders::get(lua, 1);;
   index = luaL_checkstring(lua, 2);
 
   TSDebug("lua", "%s[%s]", __func__, index);
 
-  lua_pushboolean(lua, 1);
+  field = TSMimeHdrFieldFind(hdrs->buffer, hdrs->headers, index, -1);
+  if (field == TS_NULL_MLOC) {
+    lua_pushnil(lua);
+    return 1;
+  }
+
+  value = TSMimeHdrFieldValueStringGet(hdrs->buffer, hdrs->headers, field, 0, &vlen);
+  lua_pushlstring(lua, value, vlen);
   return 1;
 }
 
