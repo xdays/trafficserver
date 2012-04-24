@@ -316,7 +316,6 @@ LuaRemapHeaderIndex(lua_State * lua)
   int               vlen;
   TSMLoc            field;
 
-
   hdrs = LuaRemapHeaders::get(lua, 1);;
   index = luaL_checkstring(lua, 2);
 
@@ -336,16 +335,52 @@ LuaRemapHeaderIndex(lua_State * lua)
 static int
 LuaRemapHeaderNewIndex(lua_State * lua)
 {
-  const char * index;
-  const char * value;
+  LuaRemapHeaders * hdrs;
+  const char *      index;
+  const char *      value;
+  size_t            vlen;
+  TSMLoc            field;
 
-  TSAssert(lua_istable(lua, 1));
+  hdrs = LuaRemapHeaders::get(lua, 1);
   index = luaL_checkstring(lua, 2);
-  value = luaL_checkstring(lua, 3);
 
-  TSDebug("lua", "%s[%s] = %s", __func__, index, value);
+  TSDebug("lua", "%s[%s] = (%s)", __func__, index, LTYPEOF(lua, 3));
+  field = TSMimeHdrFieldFind(hdrs->buffer, hdrs->headers, index, -1);
 
-  lua_pushboolean(lua, 1);
+  // Setting a key to nil means to delete it.
+  if (lua_isnoneornil(lua, 3)) {
+    if (field != TS_NULL_MLOC) {
+      TSMimeHdrFieldDestroy(hdrs->buffer, hdrs->headers, field);
+      TSHandleMLocRelease(hdrs->buffer, hdrs->headers, field);
+    }
+
+    return 1;
+  }
+
+  // If the MIME field doesn't exist yet, we'd better make it.
+  if (field == TS_NULL_MLOC) {
+    TSMimeHdrFieldCreateNamed(hdrs->buffer, hdrs->headers, index, -1, &field);
+    TSMimeHdrFieldAppend(hdrs->buffer, hdrs->headers, field);
+  }
+
+  TSMimeHdrFieldValuesClear(hdrs->buffer, hdrs->headers, field);
+
+  // Finally, we can set it's value.
+  switch(lua_type(lua, 3)) {
+    case LUA_TBOOLEAN:
+      value = lua_toboolean(lua, 3) ? "1" : "0";
+      vlen = 1;
+      break;
+    default:
+      value = lua_tolstring(lua, 3, &vlen);
+      break;
+  }
+
+  if (value) {
+    TSMimeHdrFieldValueStringInsert(hdrs->buffer, hdrs->headers, field, -1, value, vlen);
+  }
+
+  TSHandleMLocRelease(hdrs->buffer, hdrs->headers, field);
   return 1;
 }
 
