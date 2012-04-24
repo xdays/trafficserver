@@ -243,6 +243,12 @@ LuaRemapUrl(lua_State * lua)
   return 1;
 }
 
+// Since we cannot add fields to userdata objects, we use the environment to store the fields. If the requested
+// field isn't in our metatable, try to find it in the environment. Populate keys in the environment on demand if
+// the request is for a key that we know about.
+//
+// XXX When we set __index in the metatable, Lua routes all method calls through here rather than checking for the
+// existing key first. That's a bit surprising and I wonder whether there's a better way to handle this.
 static int
 LuaRemapIndex(lua_State * lua)
 {
@@ -253,9 +259,6 @@ LuaRemapIndex(lua_State * lua)
   index = luaL_checkstring(lua, 2);
 
   TSDebug("lua", "%s[%s]", __func__, index);
-
-  // XXX When we set __index in the metatable, Lua routes all method calls through here rather than checking for the
-  // existing key first. That's a bit surprising and I wonder whether there's a better way to handle this.
 
   // Get the userdata's metatable and look up the index in it.
   lua_getmetatable(lua, 1);
@@ -269,32 +272,37 @@ LuaRemapIndex(lua_State * lua)
   // Pop the field value and the metatable.
   lua_pop(lua, 2);
 
-  if (strcmp(index, "headers") != 0) {
-    return 0;
-  }
-
   lua_getfenv(lua, 1);
-  TSDebug("lua", "-1 is %s", LTYPEOF(lua, -1));
 
   // Get the requested field from the environment table.
   lua_getfield(lua, -1, index);
-  if (lua_isnoneornil(lua, -1)) {
+
+  // If we have a value for that field, pop the environment table, leaving the value on top.
+  if (!lua_isnoneornil(lua, -1)) {
+    lua_remove(lua, -2);
+    return 1;
+  }
+
+  // Pop the nil field value.
+  lua_pop(lua, 1);
+
+  if (strcmp(index, "headers") == 0) {
     LuaRemapHeaders * hdrs;
-    TSDebug("lua", "populating '%s' field", index);
-    lua_pop(lua, 1);
 
     hdrs = LuaRemapHeaders::alloc(lua);
     hdrs->buffer = rq->rri->requestBufp;
     hdrs->headers = rq->rri->requestHdrp;
 
-    // Set it for the 'headers' index and push it on the stack.
+    // Set it for the 'headers' index and then push it on the stack.
     lua_setfield(lua, -2, index);
     lua_getfield(lua, -1, index);
+
+    // Pop the environment table, leaving the field value on top.
+    lua_remove(lua, -2);
+    return 1;
   }
 
-  // Pop the environment table, leaving the field value on top.
-  lua_remove(lua, -2);
-  return 1;
+  return 0;
 }
 
 static const luaL_Reg RRI[] =
