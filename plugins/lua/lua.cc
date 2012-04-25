@@ -97,18 +97,11 @@ LuaPluginRemap(lua_State * lua, TSHttpTxn txn, TSRemapRequestInfo * rri)
 
   TSDebug("lua", "handling request %p on thread 0x%llx", rri, (unsigned long long)pthread_self());
 
-  // XXX The 'to' and 'from' URLs are supposed to be static so we can cache them somewhere
-  // in the Lua state.
-  // XXX Do we really need to pass this at all? You can get the current URL from the request, so
-  // there's not really a need for these that I can see ...
-  LuaPushUrl(lua, rri->requestBufp, rri->mapFromUrl);
-  LuaPushUrl(lua, rri->requestBufp, rri->mapToUrl);
-
   // XXX We can also cache the RemapRequestInfo in the Lua state. We we just need to reset
   // the rri pointer and status.
   rq = LuaPushRemapRequestInfo(lua, txn, rri);
 
-  if (lua_pcall(lua, 3, 0, 0) != 0) {
+  if (lua_pcall(lua, 1, 0, 0) != 0) {
     TSDebug("lua", "remap failed: %s", lua_tostring(lua, -1));
     lua_pop(lua, 1);
     return TSREMAP_ERROR;
