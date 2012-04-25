@@ -128,24 +128,8 @@ LuaPluginNewState(void)
     return NULL;
   }
 
-//  LuaLoadLibraries(lua);
-//  LuaRegisterLibrary(lua, "ts", LuaApiInit);
-
-  luaL_openlibs(lua);
-  // Pull up the preload table.
-  lua_getglobal(lua, "package");
-  lua_getfield(lua, -1, "preload");
-
-  // Pop the 'package' table.
-  lua_remove(lua, -2);
-
-  // Register LuaApiInit to load the 'ts' package.
-  lua_pushcfunction(lua, LuaApiInit);
-  lua_setfield(lua, -2, "ts");
-
-  // Pop the 'preload' table.
-  lua_pop(lua, -1);
-
+  LuaLoadLibraries(lua);
+  LuaRegisterLibrary(lua, "ts", LuaApiInit);
 
   return lua;
 }
