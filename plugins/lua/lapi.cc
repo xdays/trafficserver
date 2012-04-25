@@ -20,6 +20,7 @@
 #include <ts/remap.h>
 #include <string.h>
 #include "lapi.h"
+#include "lutil.h"
 
 // Return the type name string for the given index.
 #define LTYPEOF(L, index) lua_typename(L, lua_type(L, index))
@@ -64,15 +65,6 @@ LuaRemapRequest::alloc(lua_State * lua)
   TSReleaseAssert(lua_setfenv(lua, -2));
 
   return rq;
-}
-
-static void
-LuaPushMetatable(lua_State * lua, const char * name, const luaL_Reg * exports)
-{
-  luaL_newmetatable(lua, name);
-  lua_pushvalue(lua, -1);
-  lua_setfield(lua, -2, "__index");
-  luaL_register(lua, NULL, exports);
 }
 
 // Given a URL table on the top of the stack, pop it's values into the URL buffer.

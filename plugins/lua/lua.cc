@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 #include "lapi.h"
+#include "lutil.h"
 
 static pthread_key_t LuaStateKey;
 
@@ -39,19 +40,6 @@ struct LuaPluginState
 
   pathlist paths;
 };
-
-static void *
-LuaAllocate(void * ud, void * ptr, size_t osize, size_t nsize)
-{
-  TSReleaseAssert(ud == NULL);
-
-  if (nsize == 0) {
-    TSfree(ptr);
-    return NULL;
-  }
-
-  return TSrealloc(ptr, nsize);
-}
 
 static TSReturnCode
 LuaPluginInit(lua_State * lua)
@@ -140,8 +128,10 @@ LuaPluginNewState(void)
     return NULL;
   }
 
-  luaL_openlibs(lua);
+//  LuaLoadLibraries(lua);
+//  LuaRegisterLibrary(lua, "ts", LuaApiInit);
 
+  luaL_openlibs(lua);
   // Pull up the preload table.
   lua_getglobal(lua, "package");
   lua_getfield(lua, -1, "preload");
@@ -155,6 +145,7 @@ LuaPluginNewState(void)
 
   // Pop the 'preload' table.
   lua_pop(lua, -1);
+
 
   return lua;
 }
