@@ -19,14 +19,14 @@ pkglibdir = ${pkglibexecdir}
 if BUILD_LUA_SUPPORT
 
 AM_CXXFLAGS = \
-  ${LUA_INCLUDE} \
+  ${LUA_CFLAGS} \
   -I$(top_builddir)/proxy/api \
   -I$(top_srcdir)/proxy/api
 
 
 pkglib_LTLIBRARIES = lua.la
 
-lua_la_LIBADD = ${LUA_LIB}
+lua_la_LIBADD = ${LUA_LIBS}
 lua_la_SOURCES = lua.cc lapi.cc lutil.cc
 lua_la_LDFLAGS = -module -avoid-version -shared
 

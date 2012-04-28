@@ -1064,12 +1064,13 @@ AC_SUBST(arg_max)
 AX_LIB_READLINE
 
 #
-# Check for Lua, at least version 5.1
-AX_LUA_HEADERS_VERSION(501)
-AX_LUA_LIBS
-AC_SUBST(LUA_LIB)
-AC_SUBST(LUA_INCLUDE)
-AM_CONDITIONAL([BUILD_LUA_SUPPORT], [test -n "$LUA_LIB"])
+# Check for Lua, at least version 5.1, sets LUA_CFLAGS and LUA_LIBS.
+CHECK_LUA(
+  [ enable_lua_support="yes" ],
+  [ enable_lua_support="no" ]
+)
+
+AM_CONDITIONAL([BUILD_LUA_SUPPORT], [ test "x${enable_lua_support}" = "xyes" ])
 
 # -----------------------------------------------------------------------------
 # 5. CHECK FOR HEADER FILES
