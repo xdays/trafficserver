@@ -57,7 +57,7 @@ int Store::getVolume(char* line) {
 // Store
 //
 Ptr<ProxyMutex> tmp_p;
-Store::Store():n_disks(0), disk(NULL)
+Store::Store():n_disks(0), disk(NULL), vol_str("volume=")
 {
 }
 
