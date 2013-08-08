@@ -32,6 +32,9 @@
 #include <stdlib.h>
 #include <ts/ts.h>
 
+#define PLUGIN_NAME "libloader"
+#include <ts/debug.h>
+
 typedef struct {
     void *handle;
     void *next;
@@ -61,7 +64,7 @@ void TSPluginInit(int argc, const char *argv[])
     info.support_email = (char *)"users@trafficserver.apache.org";
 
     if (TSPluginRegister(TS_SDK_VERSION_3_0, &info) != TS_SUCCESS) {
-        TSError("[libloader] Plugin registration failed.\n");
+        TSLogError("Plugin registration failed.");
         return;
     }
 
@@ -75,10 +78,10 @@ void TSPluginInit(int argc, const char *argv[])
             l->handle = handle;
             l->next = libs;
             libs = l;
-            TSDebug("libloader", " loaded %s\n", lib);
+            TSLogDebug(i"loaded %s", lib);
         }
         else {
-            TSError("[libloader] failed to load %s: %s\n", lib, dlerror());
+            TSLogError("Failed to load %s: %s", lib, dlerror());
         }
     }
     return;
