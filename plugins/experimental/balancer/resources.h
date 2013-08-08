@@ -33,6 +33,9 @@
 #include <ts/ts.h>
 
 
+#define PLUGIN_NAME "balancer"
+#include <ts/debug.h>
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // Class declaration
@@ -46,12 +49,12 @@ public:
 
   ~Resources() {
     if (_hdrLoc) {
-      TSDebug("balancer", "Releasing the client request headers");
+      TSLogDebug("Releasing the client request headers");
       TSHandleMLocRelease(_bufp, TS_NULL_MLOC, _hdrLoc);
     }
 
     if (_jar) {
-      TSDebug("balancer", "Destroying the cookie jar");
+      TSLogDebug("Destroying the cookie jar");
       // TODO - destroy cookies
     }
   }
@@ -72,7 +75,7 @@ public:
       memcpy(cookie_hdr, _rri->request_cookie, _rri->request_cookie_size);
       cookie_hdr[_rri->request_cookie_size] = '\0';
       _jar = // TODO - create cookies
-      TSDebug("balancer", "Creating the cookie jar");
+      TSLogDebug("Creating the cookie jar");
     }
 
     return _jar;
