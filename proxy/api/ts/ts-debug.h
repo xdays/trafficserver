@@ -43,7 +43,7 @@
 #else
 
 #define TSLogDebug(fmt, args...) do {                                    \
-  TSDebug(PLUGIN_NAME, "DEBUG: [%s:%d] [%s] " fmt, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
+  TSDebug(PLUGIN_NAME, "DEBUG: [%s:%d] [%s] " fmt, __FILE__, __LINE__, __func__ , ##args ); \
   } while (0)
 
 #define TSLogInfo(fmt, args...) do {                                    \
@@ -55,14 +55,14 @@
 } while (0)
 
 #define TSLogError(fmt, args...) do {                                    \
-  TSError("[%s] [%s:%d] [%s] ERROR: " fmt, PLUGIN_NAME, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
-  TSDebug(PLUGIN_NAME, "[%s:%d] [%s] ERROR: " fmt, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
+  TSError("[%s] [%s:%d] [%s] ERROR: " fmt, PLUGIN_NAME, __FILE__, __LINE__, __func__ , ##args ); \
+  TSDebug(PLUGIN_NAME, "[%s:%d] [%s] ERROR: " fmt, __FILE__, __LINE__, __func__ , ##args ); \
 } while (0)
 #endif
 
 #define TSLogFatal(fmt, args...) do {                                    \
-  TSError("[%s] [%s:%d] [%s] FATAL: " fmt, PLUGIN_NAME, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
-  TSDebug(PLUGIN_NAME, "[%s:%d] [%s] FATAL: " fmt, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
+  TSError("[%s] [%s:%d] [%s] FATAL: " fmt, PLUGIN_NAME, __FILE__, __LINE__, __func__ , ##args ); \
+  TSDebug(PLUGIN_NAME, "[%s:%d] [%s] FATAL: " fmt, __FILE__, __LINE__, __func__ , ##args ); \
   exit(-1); \
 } while (0)
 
