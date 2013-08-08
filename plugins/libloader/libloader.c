@@ -78,7 +78,7 @@ void TSPluginInit(int argc, const char *argv[])
             l->handle = handle;
             l->next = libs;
             libs = l;
-            TSLogDebug(i"loaded %s", lib);
+            TSLogDebug("loaded %s", lib);
         }
         else {
             TSLogError("Failed to load %s: %s", lib, dlerror());
