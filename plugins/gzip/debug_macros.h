@@ -26,7 +26,7 @@
 
 #define PLUGIN_NAME "gzip"
 
-#include <ts/ts.h>
+#include <ts/ts-debug.h>
 
 //FIXME: this one doesn't deserve to be here
 #define DISALLOW_COPY_AND_ASSIGN(TypeName) \

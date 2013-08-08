@@ -1300,28 +1300,6 @@ extern "C"
   */
   tsapi void TSError(const char* fmt, ...) TS_PRINTFLIKE(1, 2);
 
-#define TSPluginDebug(fmt, args...) do {                                    \
-  TSDebug(PLUGIN_NAME, "DEBUG: [%s:%d] [%s] " fmt, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
-  } while (0)
-
-#define TSPluginInfo(fmt, args...) do {                                    \
-  TSDebug(PLUGIN_NAME, "INFO: " fmt, ##args ); \
-  } while (0)
-
-#define TSPluginWarning(fmt, args...) do {                                    \
-  TSDebug(PLUGIN_NAME, "WARNING: " fmt, ##args ); \
-} while (0)
-
-#define TSPluginError(fmt, args...) do {                                    \
-  TSError("[%s] [%s:%d] [%s] ERROR: " fmt, PLUGIN_NAME, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
-  TSDebug(PLUGIN_NAME, "[%s:%d] [%s] ERROR: " fmt, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
-} while (0)
-
-#define TSPluginFatal(fmt, args...) do {                                    \
-  TSError("[%s] [%s:%d] [%s] FATAL: " fmt, PLUGIN_NAME, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
-  TSDebug(PLUGIN_NAME, "[%s:%d] [%s] FATAL: " fmt, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
-  exit(-1); \
-} while (0)
 
   /* --------------------------------------------------------------------------
      Assertions */
