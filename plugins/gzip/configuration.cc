@@ -118,7 +118,7 @@ namespace Gzip {
 
     for (size_t i = 0; i < disallows_.size(); i++) {
       if ( fnmatch (disallows_[i].c_str(), surl.c_str(), 0) == 0 ) {
-        info("url [%s] disabled for compression, matched on pattern [%s]",
+        TSPluginInfo("URL [%s] disabled for compression, matched on pattern [%s]",
             surl.c_str(), disallows_[i].c_str());
         return false;
       }
@@ -138,7 +138,7 @@ namespace Gzip {
         match_string++;//skip '!'
       }
       if ( fnmatch (match_string, scontent_type.c_str(), 0) == 0 ) {
-        info("compressible content type [%s], matched on pattern [%s]",
+        TSPluginInfo("compressible content type [%s], matched on pattern [%s]",
             scontent_type.c_str(), compressible_content_types_[i].c_str());
         is_match = !exclude;
       }
@@ -169,7 +169,7 @@ namespace Gzip {
     }
 
     path = pathstring.c_str();
-    info("Parsing file \"%s\"", path);
+    TSPluginInfo("Parsing file \"%s\"", path);
     std::ifstream f;
 
     size_t lineno = 0;
@@ -177,7 +177,7 @@ namespace Gzip {
     f.open(path, std::ios::in);
 
     if (!f.is_open()) {
-      warning("could not open file [%s], skip",path);
+      TSPluginWarning("could not open file [%s], skip",path);
       return c;
     }
 
@@ -223,7 +223,7 @@ namespace Gzip {
             state = kParseDisallow;
           }
           else {
-            warning("failed to interpret \"%s\" at line %zu", token.c_str(), lineno);
+            TSPluginWarning("failed to interpret \"%s\" at line %zu", token.c_str(), lineno);
           }
           break;
         case kParseCompressibleContentType:
@@ -251,7 +251,7 @@ namespace Gzip {
     }
 
     if (state != kParseStart) {
-      warning("the parser state indicates that data was expected when it reached the end of the file (%d)", state);
+      TSPluginWarning("the parser state indicates that data was expected when it reached the end of the file (%d)", state);
     }
 
     return c;

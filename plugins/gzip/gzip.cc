@@ -87,13 +87,13 @@ gzip_data_alloc(int compression_type)
   err = deflateInit2(&data->zstrm, ZLIB_COMPRESSION_LEVEL, Z_DEFLATED, window_bits, ZLIB_MEMLEVEL, Z_DEFAULT_STRATEGY);
 
   if (err != Z_OK) {
-    fatal("gzip-transform: ERROR: deflateInit (%d)!", err);
+    TSPluginFatal("gzip-transform: deflateInit (%d)!", err);
   }
 
   if (dictionary) {
     err = deflateSetDictionary(&data->zstrm, (const Bytef *) dictionary, strlen(dictionary));
     if (err != Z_OK) {
-      fatal("gzip-transform: ERROR: deflateSetDictionary (%d)!", err);
+      TSPluginFatal("gzip-transform: deflateSetDictionary (%d)!", err);
     }
   }
 
@@ -138,7 +138,7 @@ gzip_content_encoding_header(TSMBuffer bufp, TSMLoc hdr_loc, const int compressi
   }
 
   if (ret != TS_SUCCESS) {
-    error("cannot add the Content-Encoding header");
+    TSPluginError("cannot add the Content-Encoding header");
   }
 
   return ret;
@@ -179,7 +179,7 @@ gzip_vary_header(TSMBuffer bufp, TSMLoc hdr_loc)
   }
 
   if (ret != TS_SUCCESS) {
-    error("cannot add/update the Vary header");
+    TSPluginError("cannot add/update the Vary header");
   }
 
   return ret;
@@ -213,7 +213,7 @@ gzip_etag_header(TSMBuffer bufp, TSMLoc hdr_loc)
   }
 
   if (ret != TS_SUCCESS) {
-    error("cannot handle the %s header", TS_MIME_FIELD_ETAG);
+    TSPluginError("cannot handle the %s header", TS_MIME_FIELD_ETAG);
   }
 
   return ret;
@@ -233,7 +233,7 @@ gzip_transform_init(TSCont contp, GzipData * data)
   data->state = transform_state_output;
 
   if (TSHttpTxnTransformRespGet(data->txn, &bufp, &hdr_loc) != TS_SUCCESS) {
-    error("Error TSHttpTxnTransformRespGet");
+    TSPluginError("TSHttpTxnTransformRespGet");
     return;
   }
 
@@ -263,13 +263,13 @@ gzip_transform_one(GzipData * data, TSIOBufferReader upstream_reader, int amount
   while (amount > 0) {
     downstream_blkp = TSIOBufferReaderStart(upstream_reader);
     if (!downstream_blkp) {
-      error("couldn't get from IOBufferBlock");
+      TSPluginError("could not get from IOBufferBlock");
       return;
     }
 
     upstream_buffer = TSIOBufferBlockReadStart(downstream_blkp, upstream_reader, &upstream_length);
     if (!upstream_buffer) {
-      error("couldn't get from TSIOBufferBlockReadStart");
+      TSPluginError("could not get from TSIOBufferBlockReadStart");
       return;
     }
 
@@ -290,7 +290,7 @@ gzip_transform_one(GzipData * data, TSIOBufferReader upstream_reader, int amount
       err = deflate(&data->zstrm, Z_NO_FLUSH);
 
       if (err != Z_OK)
-        warning("deflate() call failed: %d", err);
+        TSPluginWarning("deflate() call failed: %d", err);
 
       if (downstream_length > data->zstrm.avail_out) {
         TSIOBufferProduce(data->downstream_buffer, downstream_length - data->zstrm.avail_out);
@@ -299,7 +299,7 @@ gzip_transform_one(GzipData * data, TSIOBufferReader upstream_reader, int amount
 
       if (data->zstrm.avail_out > 0) {
         if (data->zstrm.avail_in != 0) {
-          error("gzip-transform: ERROR: avail_in is (%d): should be 0", data->zstrm.avail_in);
+          TSPluginError("gzip-transform: ERROR: avail_in is (%d): should be 0", data->zstrm.avail_in);
         }
       }
     }
@@ -339,13 +339,13 @@ gzip_transform_finish(GzipData * data)
       }
 
       if (err != Z_STREAM_END) {
-        warning("deflate should report Z_STREAM_END");
+        TSPluginWarning("deflate should report Z_STREAM_END");
       }
       break;
     }
 
     if (data->downstream_length != (int64_t) (data->zstrm.total_out)) {
-      error("gzip-transform: ERROR: output lengths don't match (%d, %ld)", data->downstream_length,
+      TSPluginError("gzip-transform: output lengths don't match (%d, %ld)", data->downstream_length,
             data->zstrm.total_out);
     }
 
@@ -427,7 +427,7 @@ gzip_transform(TSCont contp, TSEvent event, void * /* edata ATS_UNUSED */)
   } else {
     switch (event) {
     case TS_EVENT_ERROR:{
-        debug("gzip_transform: TS_EVENT_ERROR starts");
+        TSPluginDebug("gzip_transform: TS_EVENT_ERROR starts");
         TSVIO upstream_vio = TSVConnWriteVIOGet(contp);
         TSContCall(TSVIOContGet(upstream_vio), TS_EVENT_ERROR, upstream_vio);
       }
@@ -442,7 +442,7 @@ gzip_transform(TSCont contp, TSEvent event, void * /* edata ATS_UNUSED */)
       gzip_transform_do(contp);
       break;
     default:
-      warning("unknown event [%d]", event);
+      TSPluginWarning("unknown event [%d]", event);
       gzip_transform_do(contp);
       break;
     }
@@ -480,7 +480,7 @@ gzip_transformable(TSHttpTxn txnp, int server, HostConfiguration * host_configur
 
   //conservatively pick some statusses to compress
   if (!(resp_status == 200 || resp_status == 404 || resp_status == 500)) {
-    info("http response status [%d] is not compressible", resp_status);
+    TSPluginInfo("http response status [%d] is not compressible", resp_status);
     return 0;
   }
 
@@ -490,7 +490,7 @@ gzip_transformable(TSHttpTxn txnp, int server, HostConfiguration * host_configur
   int method_length;
   const char *method = TSHttpHdrMethodGet(cbuf, chdr, &method_length);
   if (!(method_length == TS_HTTP_LEN_GET && memcmp(method, TS_HTTP_METHOD_GET, TS_HTTP_LEN_GET) == 0)) {
-    debug("method is not GET, not compressible");
+    TSPluginDebug("method is not GET, not compressible");
     TSHandleMLocRelease(cbuf, TS_NULL_MLOC, chdr);
     return 0;
   }
@@ -520,11 +520,11 @@ gzip_transformable(TSHttpTxn txnp, int server, HostConfiguration * host_configur
     TSHandleMLocRelease(cbuf, TS_NULL_MLOC, chdr);
 
     if (!compression_acceptable) {
-      info("no acceptable encoding found in request header, not compressible");
+      TSPluginInfo("no acceptable encoding found in request header, not compressible");
       return 0;
     }
   } else {
-    info("no acceptable encoding found in request header, not compressible");
+    TSPluginInfo("no acceptable encoding found in request header, not compressible");
     TSHandleMLocRelease(cbuf, chdr, cfield);
     TSHandleMLocRelease(cbuf, TS_NULL_MLOC, chdr);
     return 0;
@@ -540,7 +540,7 @@ gzip_transformable(TSHttpTxn txnp, int server, HostConfiguration * host_configur
      to do anything. */
   field_loc = TSMimeHdrFieldFind(bufp, hdr_loc, TS_MIME_FIELD_CONTENT_ENCODING, -1);
   if (field_loc) {
-    info("response is already content encoded, not compressible");
+    TSPluginInfo("response is already content encoded, not compressible");
     TSHandleMLocRelease(bufp, hdr_loc, field_loc);
     TSHandleMLocRelease(bufp, TS_NULL_MLOC, hdr_loc);
     return 0;
@@ -550,7 +550,7 @@ gzip_transformable(TSHttpTxn txnp, int server, HostConfiguration * host_configur
      content type of "text/" or "application/x-javascript". */
   field_loc = TSMimeHdrFieldFind(bufp, hdr_loc, TS_MIME_FIELD_CONTENT_TYPE, -1);
   if (!field_loc) {
-    info("no content type header found, not compressible");
+    TSPluginInfo("no content type header found, not compressible");
     TSHandleMLocRelease(bufp, TS_NULL_MLOC, hdr_loc);
     return 0;
   }
@@ -559,7 +559,7 @@ gzip_transformable(TSHttpTxn txnp, int server, HostConfiguration * host_configur
 
   int rv = host_configuration->ContentTypeIsCompressible(value, len);
   if (!rv) { 
-    info("content-type [%.*s] not compressible", len, value);
+    TSPluginInfo("content-type [%.*s] not compressible", len, value);
   }
   TSHandleMLocRelease(bufp, hdr_loc, field_loc);
   TSHandleMLocRelease(bufp, TS_NULL_MLOC, hdr_loc);
@@ -573,11 +573,11 @@ gzip_transform_add(TSHttpTxn txnp, int /* server ATS_UNUSED */, HostConfiguratio
   int *tmp = (int *) TSHttpTxnArgGet(txnp, arg_idx_hooked);
   if (tmp) {
     //happens on cache_stale_hit
-    debug("transform hook already set, bail");
+    TSPluginDebug("transform hook already set, bail");
     return;
   } else {
     TSHttpTxnArgSet(txnp, arg_idx_hooked, (void *) &GZIP_ONE);
-    info("adding compression transform");
+    TSPluginInfo("adding compression transform");
   }
 
   TSHttpTxnUntransformedRespCache(txnp, 1);
@@ -605,15 +605,15 @@ cache_transformable(TSHttpTxn txnp)
   int obj_status;
 
   if (TSHttpTxnCacheLookupStatusGet(txnp, &obj_status) == TS_ERROR) {
-    warning("Couldn't get cache status of object");
+    TSPluginWarning("Couldn't get cache status of object");
     return 0;
   }
   if (obj_status == TS_CACHE_LOOKUP_HIT_STALE) {
-    info("stale cache hit");
+    TSPluginInfo("stale cache hit");
     return 0;
   }
   if (obj_status == TS_CACHE_LOOKUP_HIT_FRESH) {
-    info("fresh cache hit");
+    TSPluginInfo("fresh cache hit");
     return 1;
   }
 
@@ -659,7 +659,7 @@ transform_plugin(TSCont /* contp ATS_UNUSED */, TSEvent event, void *edata)
           if (!hc->enabled() || !hc->IsUrlAllowed(url, url_len)) {
             //FIXME: no double negatives
             TSHttpTxnArgSet(txnp, arg_idx_url_disallowed, (void *) &GZIP_ONE);
-            info("url [%.*s] not allowed", url_len, url);
+            TSPluginInfo("url [%.*s] not allowed", url_len, url);
           } else {
             normalize_accept_encoding(txnp, req_buf, req_loc);	
           }
@@ -725,7 +725,7 @@ transform_plugin(TSCont /* contp ATS_UNUSED */, TSEvent event, void *edata)
       break;
 
     default:
-      fatal("gzip transform unknown event");
+      TSPluginFatal("gzip transform unknown event");
   }
 
   return 0;
@@ -738,7 +738,7 @@ read_configuration(TSCont contp) {
   Configuration * newconfig = Configuration::Parse(path);
 
   Configuration * oldconfig =__sync_lock_test_and_set(&config, newconfig);
-  debug("config swapped,old config %p", oldconfig);
+  TSPluginDebug("config swapped,old config %p", oldconfig);
 
   //FIXME: we have leaked.
   //consider cloning or refcounting the configuration passed to the txn
@@ -751,7 +751,7 @@ static int
 management_update(TSCont contp, TSEvent event, void * /* edata ATS_UNUSED */)
 {
   TSReleaseAssert(event == TS_EVENT_MGMT_UPDATE);
-  info("management update event received");
+  TSPluginInfo("management update event received");
   read_configuration(contp);
   return 0;
 }
@@ -763,15 +763,15 @@ TSPluginInit(int argc, const char *argv[])
   string config_path;
 
   if (argc > 2)  {
-    fatal("the gzip plugin does not accept more than 1 plugin argument");
+    TSPluginFatal("the gzip plugin does not accept more than 1 plugin argument");
   } else if (argc == 2) { 
     config_path = std::string(argv[1]);
   }
 
-  info("TSPluginInit %s", argv[0]);
+  TSPluginInfo("TSPluginInit %s", argv[0]);
 
   if (!register_plugin()) {
-    fatal("The gzip plugin failed to register");
+    TSPluginFatal("The gzip plugin failed to register");
   }
 
   //if (argc == 2) {
@@ -779,13 +779,13 @@ TSPluginInit(int argc, const char *argv[])
   //}
 
   if (TSHttpArgIndexReserve("gzip", "for remembering if the hook was set", &arg_idx_hooked) != TS_SUCCESS) {
-    fatal("failed to reserve an argument index");
+    TSPluginFatal("failed to reserve an argument index");
   }
   if (TSHttpArgIndexReserve("gzip", "for storing if compression is applicable", &arg_idx_host_configuration) != TS_SUCCESS) {
-    fatal("failed to reserve an argument index");
+    TSPluginFatal("failed to reserve an argument index");
   }
   if (TSHttpArgIndexReserve("gzip", "for storing if compression is disallowed for this txn", &arg_idx_url_disallowed) != TS_SUCCESS) {
-    fatal("failed to reserve an argument index");
+    TSPluginFatal("failed to reserve an argument index");
   }
 
   global_hidden_header_name = init_hidden_header_name();
@@ -795,7 +795,7 @@ TSPluginInit(int argc, const char *argv[])
   char * p = (char*)TSmalloc(config_path.size()+1);
   strcpy(p,config_path.c_str());
   TSContDataSet(management_contp,(void*)p);
-  TSMgmtUpdateRegister(management_contp, TAG);
+  TSMgmtUpdateRegister(management_contp, PLUGIN_NAME);
   read_configuration(management_contp);
 
   TSCont transform_contp = TSContCreate(transform_plugin, NULL);
@@ -804,5 +804,5 @@ TSPluginInit(int argc, const char *argv[])
   TSHttpHookAdd(TS_HTTP_SEND_REQUEST_HDR_HOOK, transform_contp);
   TSHttpHookAdd(TS_HTTP_CACHE_LOOKUP_COMPLETE_HOOK, transform_contp);
 
-  info("loaded");
+  TSPluginInfo("loaded");
 }
