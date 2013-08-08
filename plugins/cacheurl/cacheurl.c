@@ -257,12 +257,9 @@ static pr_list* load_config_file(const char *config_file) {
          * buffer is the first part of the line. spend is the second part just
          * after the whitespace */
         if (log) {
-            TSTextLogObjectWrite(log,
-                    "Adding pattern/replacement pair: '%s' -> '%s'",
-                    buffer, spend);
+            TSTextLogObjectWrite(log, "Adding pattern/replacement pair: '%s' -> '%s'", buffer, spend);
         }
-        TSDebug(
-                buffer, spend);
+        TSDebug("Adding pattern/replacement pair: '%s' -> '%s'\n", buffer, spend);
         retval = regex_compile(&info, buffer, spend);
         if (!retval) {
             TSLogError("Unable to precompile regex/replacement. Skipping.");
