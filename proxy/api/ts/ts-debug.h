@@ -31,31 +31,36 @@
 
 /** all of these APIs assume you've defined PLUGIN_NAME first before
  *  including this header file.
+ *
+ *  These APIs are private, that is: They are not installed. They
+ *  can be used by in-tree plugins, external plugins will have to redefine this
+ *  or find their own way of logging, until ATS has unified it's plugin logging
+ *  in the same way it has unified the core-logging.
  **/
 
 #ifndef PLUGIN_NAME
-# error "A plugin must define a PLUGIN_NAME string constant *before* including <ts/ts.h> in order to use TSPlugin(Debug|Info|Warning|Error|Fatal)"
+# error "A plugin must define a PLUGIN_NAME string constant *before* including <ts/ts.h> in order to use TSLog(Debug|Info|Warning|Error|Fatal)"
 #else
 
-#define TSPluginDebug(fmt, args...) do {                                    \
+#define TSLogDebug(fmt, args...) do {                                    \
   TSDebug(PLUGIN_NAME, "DEBUG: [%s:%d] [%s] " fmt, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
   } while (0)
 
-#define TSPluginInfo(fmt, args...) do {                                    \
+#define TSLogInfo(fmt, args...) do {                                    \
   TSDebug(PLUGIN_NAME, "INFO: " fmt, ##args ); \
   } while (0)
 
-#define TSPluginWarning(fmt, args...) do {                                    \
+#define TSLogWarning(fmt, args...) do {                                    \
   TSDebug(PLUGIN_NAME, "WARNING: " fmt, ##args ); \
 } while (0)
 
-#define TSPluginError(fmt, args...) do {                                    \
+#define TSLogError(fmt, args...) do {                                    \
   TSError("[%s] [%s:%d] [%s] ERROR: " fmt, PLUGIN_NAME, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
   TSDebug(PLUGIN_NAME, "[%s:%d] [%s] ERROR: " fmt, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
 } while (0)
 #endif
 
-#define TSPluginFatal(fmt, args...) do {                                    \
+#define TSLogFatal(fmt, args...) do {                                    \
   TSError("[%s] [%s:%d] [%s] FATAL: " fmt, PLUGIN_NAME, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
   TSDebug(PLUGIN_NAME, "[%s:%d] [%s] FATAL: " fmt, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
   exit(-1); \
