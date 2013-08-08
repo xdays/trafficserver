@@ -37,7 +37,9 @@ limitations under the License.
 #include "ts/ts.h"
 #include "ink_defs.h"
 
-static const char PLUGIN_NAME[] = "healthchecks";
+#define PLUGIN_NAME "healthchecks"
+#include <ts/debug.h>
+
 static const char SEPARATORS[] = " \t\n";
 
 #define MAX_PATH_LEN  4096
@@ -207,14 +209,14 @@ hc_thread(void *data ATS_UNUSED)
     if ((now.tv_sec  - last_free.tv_sec) > FREELIST_TIMEOUT) {
       HCFileData *fdata = fl, *prev_fdata = fl;
 
-      TSDebug(PLUGIN_NAME, "Checking the freelist");
+      TSLogDebug("Checking the freelist");
       memcpy(&last_free, &now, sizeof(struct timeval));
       while(fdata) {
         if (fdata->remove > now.tv_sec) {
           if (prev_fdata)
             prev_fdata->_next = fdata->_next;
           fdata = fdata->_next;
-          TSDebug(PLUGIN_NAME, "Cleaning up entry from frelist");
+          TSLogDebug("Cleaning up entry from frelist");
           TSfree(fdata);
         } else {
           prev_fdata = fdata;
@@ -240,12 +242,12 @@ hc_thread(void *data ATS_UNUSED)
           HCFileData *new_data = TSmalloc(sizeof(HCFileData));
 
           if (event->mask & (IN_CLOSE_WRITE)) {
-            TSDebug(PLUGIN_NAME, "Modify file event (%d) on %s", event->mask, finfo->fname);
+            TSLogDebug("Modify file event (%d) on %s", event->mask, finfo->fname);
           } else if (event->mask & (IN_CREATE|IN_MOVED_TO)) {
-            TSDebug(PLUGIN_NAME, "Create file event (%d) on %s", event->mask, finfo->fname);
+            TSLogDebug("Create file event (%d) on %s", event->mask, finfo->fname);
             finfo->wd = inotify_add_watch(fd, finfo->fname, IN_DELETE_SELF|IN_CLOSE_WRITE|IN_ATTRIB);
           } else if (event->mask & (IN_DELETE_SELF|IN_MOVED_FROM)) {
-            TSDebug(PLUGIN_NAME, "Delete file event (%d) on %s", event->mask, finfo->fname);
+            TSLogDebug("Delete file event (%d) on %s", event->mask, finfo->fname);
             finfo->wd = inotify_rm_watch(fd, finfo->wd);
           }
           memset(new_data, 0, sizeof(HCFileData));
@@ -358,7 +360,7 @@ parse_configs(const char* fname)
       finfo->data = TSmalloc(sizeof(HCFileData));
       memset(finfo->data, 0, sizeof(HCFileData));
       reload_status_file(finfo, finfo->data);
-      TSDebug(PLUGIN_NAME, "Parsed: %s %s %s %s %s", finfo->path, finfo->fname, mime, ok, miss);
+      TSLogDebug("Parsed: %s %s %s %s %s", finfo->path, finfo->fname, mime, ok, miss);
     }
   }
   fclose(fd);
@@ -399,21 +401,21 @@ hc_process_read(TSCont contp, TSEvent event, HCState *my_state)
 {
   if (event == TS_EVENT_VCONN_READ_READY) {
     if (my_state->data->exists) {
-      TSDebug(PLUGIN_NAME, "Setting OK response header");
+      TSLogDebug("Setting OK response header");
       my_state->output_bytes = add_data_to_resp(my_state->info->ok, my_state->info->o_len, my_state);
     } else {
-      TSDebug(PLUGIN_NAME, "Setting MISS response header");
+      TSLogDebug("Setting MISS response header");
       my_state->output_bytes = add_data_to_resp(my_state->info->miss, my_state->info->m_len, my_state);
     }
     TSVConnShutdown(my_state->net_vc, 1, 0);
     my_state->write_vio = TSVConnWrite(my_state->net_vc, contp, my_state->resp_reader, INT64_MAX);
   } else if (event == TS_EVENT_ERROR) {
-    TSError("hc_process_read: Received TS_EVENT_ERROR\n");
+    TSLogError("Received TS_EVENT_ERROR");
   } else if (event == TS_EVENT_VCONN_EOS) {
     /* client may end the connection, simply return */
     return;
   } else if (event == TS_EVENT_NET_ACCEPT_FAILED) {
-    TSError("hc_process_read: Received TS_EVENT_NET_ACCEPT_FAILED\n");
+    TSLogError("Received TS_EVENT_NET_ACCEPT_FAILED");
   } else {
     TSReleaseAssert(!"Unexpected Event");
   }
@@ -438,7 +440,7 @@ hc_process_write(TSCont contp, TSEvent event, HCState *my_state)
   } else if (TS_EVENT_VCONN_WRITE_COMPLETE) {
     cleanup(contp, my_state);
   } else if (event == TS_EVENT_ERROR) {
-    TSError("hc_process_write: Received TS_EVENT_ERROR\n");
+    TSLogError("Received TS_EVENT_ERROR");
   } else {
     TSReleaseAssert(!"Unexpected Event");
   }
@@ -529,7 +531,7 @@ TSPluginInit(int argc, const char *argv[])
   TSPluginRegistrationInfo info;
 
   if (2 != argc) {
-    TSError("Must specify a configuration file.\n");
+    TSLogError("Must specify a configuration file.");
     return;
   }
 
@@ -538,25 +540,26 @@ TSPluginInit(int argc, const char *argv[])
   info.support_email = "dev@trafficserver.apache.org";
 
   if (TS_SUCCESS != TSPluginRegister(TS_SDK_VERSION_3_0, &info)) {
-    TSError("Plugin registration failed. \n");
+    TSLogError("Plugin registration failed.");
     return;
   }
 
   /* This will update the global configuration file, and is not reloaded at run time */
   /* ToDo: Support reloading with traffic_line -x  ? */
   if (NULL == (g_config = parse_configs(argv[1]))) {
-    TSError("Unable to read / parse %s config file", argv[1]);
+    TSLogError("Unable to read / parse %s config file", argv[1]);
     return;
   }
 
   /* Setup the background thread */
   if (!TSThreadCreate(hc_thread, NULL)) {
-    TSError("Failure in thread creation");
+    TSLogError("Failure in thread creation");
     return;
   }
 
   /* Create a continuation with a mutex as there is a shared global structure
      containing the headers to add */
-  TSDebug(PLUGIN_NAME, "Started %s plugin", PLUGIN_NAME);
+  TSLogInfo("Started %s plugin", PLUGIN_NAME);
   TSHttpHookAdd(TS_HTTP_READ_REQUEST_HDR_HOOK, TSContCreate(health_check_origin, NULL));
 }
+
