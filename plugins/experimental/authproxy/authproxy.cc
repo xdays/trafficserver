@@ -401,22 +401,22 @@ StateAuthProxyResolve(AuthRequestContext * auth, void *)
         );
 
         if (HttpGetOriginHost(mbuf, mhdr, hostname, sizeof(hostname))) {
-            AuthLogDebug("resolving authorization host %s", hostname);
+            TSLogDebug("resolving authorization host %s", hostname);
             lookup = TSHostLookup(auth->cont, hostname, strlen(hostname));
             TSHandleMLocRelease(mbuf, TS_NULL_MLOC, mhdr);
         } else {
-            AuthLogError("failed to extract origin host name from client request");
+            TSLogError("failed to extract origin host name from client request");
             TSHandleMLocRelease(mbuf, TS_NULL_MLOC, mhdr);
             return TS_EVENT_ERROR;
         }
 
     } else {
-        AuthLogDebug("resolving authorization proxy host %s", options->hostname);
+        TSLogDebug("resolving authorization proxy host %s", options->hostname);
         lookup = TSHostLookup(auth->cont, options->hostname, strlen(options->hostname));
     }
 
     if (TSActionDone(lookup)) {
-        AuthLogDebug("host lookup was executed in line");
+        TSLogDebug("host lookup was executed in line");
         return TS_EVENT_NONE;
     }
 
@@ -439,7 +439,7 @@ StateAuthProxyConnect(AuthRequestContext * auth, void * edata)
 
     dns = (TSHostLookupResult)edata;
     if (dns == NULL) {
-        AuthLogError("failed to resolve authorization proxy at %s", options->hostname);
+        TSLogError("failed to resolve authorization proxy at %s", options->hostname);
         return TS_EVENT_ERROR;
     }
 
@@ -457,7 +457,7 @@ StateAuthProxyConnect(AuthRequestContext * auth, void * edata)
     }
 
     auth->is_head = AuthRequestIsHead(auth->txn);
-    AuthLogDebug("client request %s a HEAD request", auth->is_head ? "is" : "is not");
+    TSLogDebug("client request %s a HEAD request", auth->is_head ? "is" : "is not");
 
     auth->vconn = TSHttpConnect(&addr.sa);
     if (auth->vconn == NULL) {
@@ -484,7 +484,7 @@ StateAuthProxyCompleteHeaders(AuthRequestContext * auth, void * /* edata ATS_UNU
     HttpDebugHeader(auth->rheader.buffer, auth->rheader.header);
 
     status = TSHttpHdrStatusGet(auth->rheader.buffer, auth->rheader.header);
-    AuthLogDebug("authorization proxy returned status %d", (int)status);
+    TSLogDebug("authorization proxy returned status %d", (int)status);
 
     // Authorize the original request on a 2xx response.
     if (status >= 200 && status < 300) {
@@ -496,13 +496,13 @@ StateAuthProxyCompleteHeaders(AuthRequestContext * auth, void * /* edata ATS_UNU
         // without writing a transform. Since that's more trouble than I want to
         // deal with right now, let's just fail fast ...
         if (HttpIsChunkedEncoding(auth->rheader.buffer, auth->rheader.header)) {
-            AuthLogDebug("ignoring chunked authorization proxy response");
+            TSLogDebug("ignoring chunked authorization proxy response");
         } else {
             // OK, we have a non-chunked response. If there's any content, let's go and
             // buffer it so that we can send it on to the client.
             nbytes = HttpGetContentLength(auth->rheader.buffer, auth->rheader.header);
             if (nbytes > 0) {
-                AuthLogDebug("content length is %u", nbytes);
+                TSLogDebug("content length is %u", nbytes);
                 return TS_EVENT_HTTP_CONTINUE;
             }
         }
@@ -547,7 +547,7 @@ StateAuthProxySendResponse(AuthRequestContext * auth, void * /* edata ATS_UNUSED
         HttpSetMimeHeader(mbuf, mhdr, TS_MIME_FIELD_CONTENT_LENGTH, 0u);
     }
 
-    AuthLogDebug("sending auth proxy response for status %d", status);
+    TSLogDebug("sending auth proxy response for status %d", status);
 
     TSHttpTxnReenable(auth->txn, TS_EVENT_HTTP_CONTINUE);
     TSHandleMLocRelease(mbuf, TS_NULL_MLOC, mhdr);
@@ -561,7 +561,7 @@ StateAuthProxyReadHeaders(AuthRequestContext * auth, void * /* edata ATS_UNUSED 
     ssize_t         consumed = 0;
     bool            complete = false;
 
-    AuthLogDebug("reading header data, %u bytes available", (unsigned)TSIOBufferReaderAvail(auth->iobuf.reader));
+    TSLogDebug("reading header data, %u bytes available", (unsigned)TSIOBufferReaderAvail(auth->iobuf.reader));
 
     for (blk = TSIOBufferReaderStart(auth->iobuf.reader); blk; blk = TSIOBufferBlockNext(blk)) {
         const char *    ptr;
@@ -595,7 +595,7 @@ StateAuthProxyReadHeaders(AuthRequestContext * auth, void * /* edata ATS_UNUSED 
         }
     }
 
-    AuthLogDebug("consuming %u bytes, %u remain",
+    TSLogDebug("consuming %u bytes, %u remain",
             (unsigned)consumed, (unsigned)TSIOBufferReaderAvail(auth->iobuf.reader));
     TSIOBufferReaderConsume(auth->iobuf.reader, consumed);
 
@@ -625,7 +625,7 @@ StateAuthProxyReadContent(AuthRequestContext * auth, void * /* edata ATS_UNUSED 
     avail = TSIOBufferReaderAvail(auth->iobuf.reader);
     needed = HttpGetContentLength(auth->rheader.buffer, auth->rheader.header);
 
-    AuthLogDebug("we have %u of %u needed bytes", (unsigned)avail, needed);
+    TSLogDebug("we have %u of %u needed bytes", (unsigned)avail, needed);
 
     if (avail >= needed) {
         // OK, we have what we need. Let's respond to the client request.
@@ -645,7 +645,7 @@ StateAuthProxyCompleteContent(AuthRequestContext * auth, void * /* edata ATS_UNU
     avail = TSIOBufferReaderAvail(auth->iobuf.reader);
     needed = HttpGetContentLength(auth->rheader.buffer, auth->rheader.header);
 
-    AuthLogDebug("we have %u of %u needed bytes", (unsigned)avail, needed);
+    TSLogDebug("we have %u of %u needed bytes", (unsigned)avail, needed);
 
     if (avail >= needed) {
         // OK, we have what we need. Let's respond to the client request.
@@ -676,7 +676,7 @@ StateAuthorized(AuthRequestContext * auth, void *)
 {
     const AuthOptions * options = auth->options();
 
-    AuthLogDebug("request authorized");
+    TSLogDebug("request authorized");
 
     // Since the original request might have authentication headers, we may
     // need to force ATS to ignore those in order to make it cacheable.
@@ -708,7 +708,7 @@ AuthProxyGlobalHook(TSCont /* cont ATS_UNUSED */, TSEvent event, void * edata)
     } ptr;
 
     ptr.edata = edata;
-    AuthLogDebug("handling event=%d edata=%p", (int)event, edata);
+    TSLogDebug("handling event=%d edata=%p", (int)event, edata);
 
     switch (event) {
     case TS_EVENT_HTTP_OS_DNS:
@@ -719,7 +719,7 @@ AuthProxyGlobalHook(TSCont /* cont ATS_UNUSED */, TSEvent event, void * edata)
             // allow that to be cached.
             TSHttpTxnReqCacheableSet(ptr.txn, 0);
 
-            AuthLogDebug("re-enabling internal transaction");
+            TSLogDebug("re-enabling internal transaction");
             TSHttpTxnReenable(ptr.txn, TS_EVENT_HTTP_CONTINUE);
             return TS_EVENT_NONE;
         }
@@ -787,7 +787,7 @@ AuthParseOptions(int argc, const char ** argv)
             } else if (strcasecmp(optarg, "head") == 0) {
                 options->transform = AuthWriteHeadRequest;
             } else {
-                AuthLogError("invalid authorization transform '%s'", optarg);
+                TSLogError("invalid authorization transform '%s'", optarg);
                 // XXX make this a fatal error?
             }
 
@@ -813,7 +813,7 @@ TSPluginInit(int argc, const char *argv[])
     info.support_email = (char *)"jamespeach@me.com";
 
     if (TSPluginRegister(TS_SDK_VERSION_3_0, &info) != TS_SUCCESS) {
-        AuthLogError("plugin registration failed");
+        TSLogError("plugin registration failed");
     }
 
     TSReleaseAssert(
@@ -825,7 +825,7 @@ TSPluginInit(int argc, const char *argv[])
 
     AuthOsDnsContinuation = TSContCreate(AuthProxyGlobalHook, NULL);
     AuthGlobalOptions = AuthParseOptions(argc, argv);
-    AuthLogDebug("using authorization proxy at %s:%d", AuthGlobalOptions->hostname, AuthGlobalOptions->hostport);
+    TSLogDebug("using authorization proxy at %s:%d", AuthGlobalOptions->hostname, AuthGlobalOptions->hostport);
 
     // Catch the DNS hook. This triggers after reading the headers and
     // resolving the requested host, but before performing any cache lookups.
@@ -854,7 +854,7 @@ TSRemapNewInstance(int argc, char * argv[], void ** instance, char * /* err ATS_
 {
     AuthOptions * options;
 
-    AuthLogDebug("using authorization proxy for remapping %s -> %s", argv[0], argv[1]);
+    TSLogDebug("using authorization proxy for remapping %s -> %s", argv[0], argv[1]);
 
     // The first two arguments are the "from" and "to" URL string. We need to
     // skip them, but we also require that there be an option to masquerade as

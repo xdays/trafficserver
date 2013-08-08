@@ -78,9 +78,7 @@ HttpDebugHeader(TSMBuffer mbuf, TSMLoc mhdr)
     avail = TSIOBufferBlockReadAvail(blk, iobuf.reader);
     ptr = (const char *)TSIOBufferBlockReadStart(blk, iobuf.reader, &nbytes);
 
-    AuthLogDebug(
-        "http request (%u of %u bytes):\n%*.*s",
-        (unsigned)nbytes, (unsigned)avail, (int)nbytes, (int)nbytes, ptr);
+    TSLogDebug("http request (%u of %u bytes):\n%*.*s", (unsigned)nbytes, (unsigned)avail, (int)nbytes, (int)nbytes, ptr);
 }
 
 void
@@ -188,7 +186,7 @@ HttpGetOriginHost(TSMBuffer mbuf, TSMLoc mhdr, char * name, size_t namelen)
         TSHandleMLocRelease(mbuf, mhdr, mloc);
 
         if (host) {
-            AuthLogDebug("using origin %.*s from host header", len, host);
+            TSLogDebug("using origin %.*s from host header", len, host);
             len = std::min(len, (int)namelen - 1);
             memcpy(name, host, len);
             name[len] = '\0';
@@ -202,7 +200,7 @@ HttpGetOriginHost(TSMBuffer mbuf, TSMLoc mhdr, char * name, size_t namelen)
         TSHandleMLocRelease(mbuf, mhdr, mloc);
 
         if (host) {
-            AuthLogDebug("using origin %.*s from request URL", len, host);
+            TSLogDebug("using origin %.*s from request URL", len, host);
             len = std::min(len, (int)namelen - 1);
             memcpy(name, host, len);
             name[len] = '\0';
