@@ -83,10 +83,10 @@ normalize_accept_encoding(TSHttpTxn /* txnp ATS_UNUSED */, TSMBuffer reqp, TSMLo
 
     if (gzip) {
       TSMimeHdrFieldValueStringInsert(reqp, hdr_loc, field, -1, "gzip", strlen("gzip"));
-      TSPluginInfo("normalized accept encoding to gzip");
+      TSLogInfo("normalized accept encoding to gzip");
     } else if (deflate) {
       TSMimeHdrFieldValueStringInsert(reqp, hdr_loc, field, -1, "deflate", strlen("deflate"));
-      TSPluginInfo("normalized accept encoding to deflate");
+      TSLogInfo("normalized accept encoding to deflate");
     }
 
     TSMimeHdrFieldAppend(reqp, hdr_loc, field);
@@ -129,7 +129,7 @@ init_hidden_header_name()
   TSMgmtString result;
 
   if (TSMgmtStringGet(var_name, &result) != TS_SUCCESS) {
-    TSPluginFatal("failed to get server name");
+    TSLogFatal("failed to get server name");
   } else {
     int hidden_header_name_len = strlen("x-accept-encoding-") + strlen(result);
     hidden_header_name = (char *) TSmalloc(hidden_header_name_len + 1);
@@ -166,7 +166,7 @@ load_dictionary(const char *preload_file)
 
   fp = fopen(preload_file, "r");
   if (!fp) {
-    TSPluginFatal("gzip-transform: Unable to open dict file %s", preload_file);
+    TSLogFatal("gzip-transform: Unable to open dict file %s", preload_file);
   }
 
   /* dict = (char *) calloc(8000, sizeof(char)); */
@@ -190,8 +190,8 @@ void
 gzip_log_ratio(int64_t in, int64_t out)
 {
   if (in) {
-    TSPluginInfo("Compressed size %" PRId64" (bytes), Original size %" PRId64", ratio: %f", out, in, ((float) (in - out) / in));
+    TSLogInfo("Compressed size %" PRId64" (bytes), Original size %" PRId64", ratio: %f", out, in, ((float) (in - out) / in));
   } else {
-    TSPluginDebug("Compressed size %" PRId64" (bytes), Original size %" PRId64", ratio: %f", out, in, 0.0F);
+    TSLogDebug("Compressed size %" PRId64" (bytes), Original size %" PRId64", ratio: %f", out, in, 0.0F);
   }
 }
