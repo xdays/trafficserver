@@ -25,7 +25,9 @@
 #include <ctype.h>
 #include <stdlib.h>
 
-static const char* PLUGIN_NAME = "conf_remap";
+#define PLUGIN_NAME "conf_remap"
+#include <ts/debug.h>
+
 // This makes the plugin depend on the version of traffic server installed, but that's
 // OK, since this plugin is distributed only with the "core" (it's a core piece).
 #define MAX_OVERRIDABLE_CONFIGS TS_CONFIG_LAST_ENTRY
@@ -85,7 +87,7 @@ RemapConfigs::parse_file(const char* fn)
     return false;
 
   if (NULL == (file = TSfopen(fn, "r"))) {
-    TSError("conf_remap: could not open config file %s", fn);
+    TSLogError("Could not open config file %s", fn);
     return false;
   }
 
@@ -103,26 +105,26 @@ RemapConfigs::parse_file(const char* fn)
       continue;
 
     if (strncmp(tok, "CONFIG", 6)) {
-      TSError("conf_remap: file %s, line %d: non-CONFIG line encountered", fn, line_num);
+      TSLogError("File %s, line %d: non-CONFIG line encountered", fn, line_num);
       continue;
     }
 
     // Find the configuration name
     tok = strtok_r(NULL, " \t", &ln);
     if (TSHttpTxnConfigFind(tok, -1, &name, &expected_type) != TS_SUCCESS) {
-      TSError("conf_remap: file %s, line %d: no records.config name given", fn, line_num);
+      TSLogError("File %s, line %d: no records.config name given", fn, line_num);
       continue;
     }
     
     // Find the type (INT or STRING only)
     tok = strtok_r(NULL, " \t", &ln);
     if (TS_RECORDDATATYPE_NULL == (type = str_to_datatype(tok))) {
-      TSError("conf_remap: file %s, line %d: only INT and STRING types supported", fn, line_num);
+      TSLogError("File %s, line %d: only INT and STRING types supported", fn, line_num);
       continue;
     }
 
     if (type != expected_type) {
-      TSError("conf_remap: file %s, line %d: mismatch between provide data type, and expected type", fn, line_num);
+      TSLogError("File %s, line %d: mismatch between provide data type, and expected type", fn, line_num);
       continue;
     }
 
@@ -146,7 +148,7 @@ RemapConfigs::parse_file(const char* fn)
       tok = NULL;
     }
     if (!tok) {
-      TSError("conf_remap: file %s, line %d: the configuration must provide a value", fn, line_num);
+      TSLogError("File %s, line %d: the configuration must provide a value", fn, line_num);
       continue;
     }
 
@@ -160,7 +162,7 @@ RemapConfigs::parse_file(const char* fn)
       _items[_current]._data_len = strlen(tok);
       break;
     default:
-      TSError("conf_remap: file %s, line %d: type not support (unheard of)", fn, line_num);
+      TSLogError("File %s, line %d: type not support (unheard of)", fn, line_num);
       continue;
       break;
     }
@@ -190,7 +192,7 @@ TSRemapInit(TSRemapInterface* api_info, char *errbuf, int errbuf_size)
     return TS_ERROR;
   }
 
-  TSDebug(PLUGIN_NAME, "remap plugin is successfully initialized");
+  TSLogInfo("remap plugin is successfully initialized");
   return TS_SUCCESS;                     /* success */
 }
 
@@ -199,7 +201,7 @@ TSReturnCode
 TSRemapNewInstance(int argc, char* argv[], void** ih, char* /* errbuf ATS_UNUSED */, int /* errbuf_size ATS_UNUSED */)
 {
   if (argc < 3) {
-    TSError("Unable to create remap instance, need configuration file");
+    TSLogError("Unable to create remap instance, need configuration file");
     return TS_ERROR;
   } else {
     RemapConfigs* conf = new(RemapConfigs);
@@ -243,11 +245,11 @@ TSRemapDoRemap(void* ih, TSHttpTxn rh, TSRemapRequestInfo * /* rri ATS_UNUSED */
       switch (conf->_items[ix]._type) {
       case TS_RECORDDATATYPE_INT:
         TSHttpTxnConfigIntSet(txnp, conf->_items[ix]._name, conf->_items[ix]._data.rec_int);
-        TSDebug(PLUGIN_NAME, "Setting config id %d to %" PRId64"", conf->_items[ix]._name, conf->_items[ix]._data.rec_int);
+        TSLogDebug("Setting config id %d to %" PRId64"", conf->_items[ix]._name, conf->_items[ix]._data.rec_int);
         break;
       case TS_RECORDDATATYPE_STRING:
         TSHttpTxnConfigStringSet(txnp, conf->_items[ix]._name, conf->_items[ix]._data.rec_string, conf->_items[ix]._data_len);
-        TSDebug(PLUGIN_NAME, "Setting config id %d to %s", conf->_items[ix]._name, conf->_items[ix]._data.rec_string);
+        TSLogDebug("Setting config id %d to %s", conf->_items[ix]._name, conf->_items[ix]._data.rec_string);
         break;
       default:
         break; // Error ?
