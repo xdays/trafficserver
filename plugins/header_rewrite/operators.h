@@ -39,7 +39,7 @@ public:
   OperatorRMHeader()
     : _header("")
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for OperatorRMHeader");
+    TSLogDebug("Calling CTOR for OperatorRMHeader");
   }
   void initialize(Parser& p);
 
@@ -59,7 +59,7 @@ public:
   OperatorSetStatus()
     : _reason(NULL), _reason_len(0)
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for OperatorSetStatus");
+    TSLogDebug("Calling CTOR for OperatorSetStatus");
   }
   void initialize(Parser& p);
 
@@ -81,7 +81,7 @@ class OperatorSetStatusReason : public Operator
 public:
   OperatorSetStatusReason()
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for OperatorSetStatusReason");
+    TSLogDebug("Calling CTOR for OperatorSetStatusReason");
   }
   void initialize(Parser& p);
 
@@ -102,7 +102,7 @@ public:
   OperatorAddHeader()
     : _header("")
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for OperatorAddHeader");
+    TSLogDebug("Calling CTOR for OperatorAddHeader");
   }
   void initialize(Parser& p);
 
@@ -123,7 +123,7 @@ public:
   OperatorSetDestination()
     : _url_qual(URL_QUAL_NONE)
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for OperatorSetDestination");
+    TSLogDebug("Calling CTOR for OperatorSetDestination");
   }
   void initialize(Parser& p);
 
@@ -143,7 +143,7 @@ class OperatorSetRedirect : public Operator
 public:
   OperatorSetRedirect()
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for OperatorSetRedirect");
+    TSLogDebug("Calling CTOR for OperatorSetRedirect");
   }
   void initialize(Parser& p);
 
@@ -163,7 +163,7 @@ class OperatorNoOp : public Operator
 public:
   OperatorNoOp()
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for OperatorNoOp");
+    TSLogDebug("Calling CTOR for OperatorNoOp");
   }
 
 protected:
@@ -180,7 +180,7 @@ public:
   OperatorSetTimeoutOut()
     : _type(TO_OUT_UNDEFINED)
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for OperatorSetTimeoutOut");
+    TSLogDebug("Calling CTOR for OperatorSetTimeoutOut");
   }
   void initialize(Parser& p);
 

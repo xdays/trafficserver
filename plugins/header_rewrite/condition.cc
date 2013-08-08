@@ -60,7 +60,7 @@ Condition::initialize(Parser& p)
 
   if (p.mod_exist("OR")) {
     if (p.mod_exist("AND")) {
-      TSError("header_rewrite: Can't have both AND and OR in mods");
+      TSLogError("Can't have both AND and OR in mods");
     } else {
       _mods = static_cast<CondModifiers>(_mods | COND_OR);
     }

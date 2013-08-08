@@ -44,7 +44,7 @@ public:
   Value()
     : _value(""), _int_value(-1), _cond_val(NULL)
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for Value");
+    TSLogDebug("Calling CTOR for Value");
   };
 
   void

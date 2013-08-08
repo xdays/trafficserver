@@ -32,9 +32,6 @@
 #include "resources.h"
 
 // "Defines"
-const char* PLUGIN_NAME = "header_rewrite";
-const char* PLUGIN_NAME_DBG = "header_rewrite_dbg";
-
 static const char* DEFAULT_CONF_PATH = "/usr/local/etc/header_rewrite/";
 
 
@@ -46,7 +43,7 @@ static ResourceIDs all_resids[TS_HTTP_LAST_HOOK+1];
 static bool
 add_rule(RuleSet* rule) {
   if (rule && rule->has_operator()) {
-    TSDebug(PLUGIN_NAME, "Adding rule to hook=%d\n", rule->get_hook());
+    TSLogDebug("Adding rule to hook=%d\n", rule->get_hook());
     if (NULL == all_rules[rule->get_hook()]) {
       all_rules[rule->get_hook()] = rule;
     } else {
@@ -82,18 +79,18 @@ parse_config(const std::string fname, TSHttpHookID default_hook)
 
   f.open(filename.c_str(), std::ios::in);
   if (!f.is_open()) {
-    TSError("header_rewrite: unable to open %s", filename.c_str());
+    TSLogError("Unable to open %s", filename.c_str());
     return false;
   }
 
-  TSDebug(PLUGIN_NAME, "Loading header_rewrite config from %s", filename.c_str());
+  TSLogDebug("Loading header_rewrite config from %s", filename.c_str());
 
   while (!f.eof()) {
     std::string line;
 
     getline(f, line);
     ++lineno; // ToDo: we should probably use this for error messages ...
-    TSDebug(PLUGIN_NAME, "Reading line: %d: %s", lineno, line.c_str());
+    TSLogDebug("Reading line: %d: %s", lineno, line.c_str());
 
     boost::trim(line);
     if (line.empty() || (line[0] == '#'))
@@ -156,7 +153,7 @@ parse_config(const std::string fname, TSHttpHookID default_hook)
 static int
 cont_rewrite_headers(TSCont contp, TSEvent event, void *edata)
 {
-  TSDebug(PLUGIN_NAME, "plugin: %d", event);
+  TSLogDebug("plugin: %d", event);
 
   TSHttpTxn txnp = (TSHttpTxn) edata;
   Resources res(txnp, contp);
@@ -181,8 +178,7 @@ cont_rewrite_headers(TSCont contp, TSEvent event, void *edata)
     hook = TS_HTTP_SEND_RESPONSE_HDR_HOOK;
     break;
   default:
-    TSError("header_rewrite: unknown event for this plugin");
-    TSDebug(PLUGIN_NAME, "unknown event for this plugin");
+    TSLogError("unknown event (%d) for this plugin", event);
     break;
   }
 
@@ -221,12 +217,12 @@ TSPluginInit(int argc, const char *argv[])
   info.support_email = (char*)"";
 
   if (TS_SUCCESS != TSPluginRegister(TS_SDK_VERSION_3_0 , &info)) {
-    TSError("header_rewrite: plugin registration failed.\n"); 
+    TSLogError("plugin registration failed."); 
   }
 
-  TSDebug(PLUGIN_NAME, "number of arguments: %d", argc);
+  TSLogDebug("number of arguments: %d", argc);
   if (argc != 2) {
-    TSError("usage: %s <config-file>\n", argv[0] );
+    TSLogError("usage: %s <config-file>", argv[0] );
     assert(argc == 2);
   }
 
@@ -240,12 +236,12 @@ TSPluginInit(int argc, const char *argv[])
   if (parse_config(argv[1], TS_HTTP_READ_RESPONSE_HDR_HOOK)) {
     for (int i=TS_HTTP_READ_REQUEST_HDR_HOOK; i<TS_HTTP_LAST_HOOK; ++i) {
       if (all_rules[i]) {
-        TSDebug(PLUGIN_NAME, "adding hook: %d", i);
+        TSLogDebug("adding hook: %d", i);
         TSHttpHookAdd(static_cast<TSHttpHookID>(i), TSContCreate(cont_rewrite_headers, NULL));
       }
     }
   } else {
-    TSError("header_rewrite: failed to parse configuration file");
+    TSLogError("Failed to parse configuration file");
   }
 }
 
@@ -272,7 +268,7 @@ TSRemapInit(TSRemapInterface *api_info, char *errbuf, int errbuf_size)
     return TS_ERROR;
   }
 
-  TSDebug(PLUGIN_NAME, "remap plugin is successfully initialized");
+  TSLogInfo("remap plugin is successfully initialized");
   return TS_SUCCESS;
 }
 
@@ -280,10 +276,10 @@ TSRemapInit(TSRemapInterface *api_info, char *errbuf, int errbuf_size)
 TSReturnCode
 TSRemapNewInstance(int argc, char *argv[], void **ih, char * /* errbuf ATS_UNUSED */, int /* errbuf_size ATS_UNUSED */)
 {
-  TSDebug(PLUGIN_NAME, "initializing the remap plugin header_rewrite");
+  TSLogDebug("initializing the remap plugin header_rewrite");
 
   if (argc < 3) {
-    TSError("Unable to create remap instance, need config file");
+    TSLogError("Unable to create remap instance, need config file");
     return TS_ERROR;
   }
 
@@ -291,14 +287,14 @@ TSRemapNewInstance(int argc, char *argv[], void **ih, char * /* errbuf ATS_UNUSE
   // remap instantiation.
   all_rules[TS_REMAP_PSEUDO_HOOK] = NULL;
   if (!parse_config(argv[2], TS_REMAP_PSEUDO_HOOK)) {
-    TSError("Unable to create remap instance");
+    TSLogError("Unable to create remap instance");
     return TS_ERROR;
   }
 
   *ih = all_rules[TS_REMAP_PSEUDO_HOOK];
   all_rules[TS_REMAP_PSEUDO_HOOK] = NULL;
 
-  TSDebug(PLUGIN_NAME, "successfully initialize the header_rewrite plugin");
+  TSLogInfo("successfully initialized plugin");
   return TS_SUCCESS;
 }
 
@@ -320,7 +316,7 @@ TSRemapDoRemap(void *ih, TSHttpTxn rh, TSRemapRequestInfo *rri)
   TSRemapStatus rval = TSREMAP_NO_REMAP;
 
   if (NULL == ih) {
-    TSDebug(PLUGIN_NAME, "No Rules configured, falling back to default");
+    TSLogDebug("No Rules configured, falling back to default");
     return rval;
   } else {
     RuleSet* rule = (RuleSet*)ih;
@@ -346,7 +342,7 @@ TSRemapDoRemap(void *ih, TSHttpTxn rh, TSRemapRequestInfo *rri)
 
   }
 
-  TSDebug(PLUGIN_NAME, "returing with status: %d", rval);
+  TSLogDebug("returing with status: %d", rval);
   return rval;
 }
 

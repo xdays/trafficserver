@@ -45,10 +45,10 @@ RuleSet::add_condition(Parser& p) {
   Condition* c = condition_factory(p.get_op());
 
   if (NULL != c) {
-    TSDebug(PLUGIN_NAME, "Adding condition: %%{%s} with arg: %s\n", p.get_op().c_str(), p.get_arg().c_str());
+    TSLogDebug("Adding condition: %%{%s} with arg: %s\n", p.get_op().c_str(), p.get_arg().c_str());
     c->initialize(p);
     if (!c->set_hook(_hook)) {
-      TSError("header_rewrite: can't use this condition in this hook");
+      TSLogError("Cannot use this condition in this hook");
       return;
     }
     if (NULL == _cond) {
@@ -70,10 +70,10 @@ RuleSet::add_operator(Parser& p) {
 
   if (NULL != o) {
     // TODO: This should be extended to show both the "argument" and the "value" (if both are used)
-    TSDebug(PLUGIN_NAME, "Adding operator: %s(%s)\n", p.get_op().c_str(), p.get_arg().c_str());
+    TSLogDebug("Adding operator: %s(%s)\n", p.get_op().c_str(), p.get_arg().c_str());
     o->initialize(p);
     if (!o->set_hook(_hook)) {
-      TSError("header_rewrite: can't use this operator in this hook");
+      TSLogError("Cannot use this operator in this hook");
       return;
     }
     if (NULL == _oper) {

@@ -48,11 +48,11 @@ public:
   explicit Matcher(const MatcherOps op)
     : _pdata(NULL), _op(op)
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for Matcher");
+    TSLogDebug("Calling CTOR for Matcher");
   }
 
   virtual ~Matcher() {
-    TSDebug(PLUGIN_NAME_DBG, "Calling DTOR for Matcher");
+    TSLogDebug("Calling DTOR for Matcher");
     free_pdata();
   }
 
@@ -86,7 +86,7 @@ public:
       std::cout<<"Invalid regex:failed to precompile"<<std::endl;
       abort();
     }
-    TSDebug(PLUGIN_NAME,"Regex precompiled successfully");
+    TSLogDebug("Regex precompiled successfully");
   }
 
   void setRegex(const unsigned int /* t ATS_UNUSED */) { return; }
@@ -148,10 +148,10 @@ private:
  }
   
   bool test_reg(const std::string t) const {
-      TSDebug(PLUGIN_NAME, "Test regular expression %s : %s", _data.c_str(), t.c_str());
+      TSLogDebug("Test regular expression %s : %s", _data.c_str(), t.c_str());
           int ovector[OVECCOUNT];
           if (helper.regexMatch(t.c_str(), t.length(), ovector) > 0) {
-              TSDebug(PLUGIN_NAME, "Successfully found regular expression match");
+              TSLogDebug("Successfully found regular expression match");
               return true;
     }
       return false;

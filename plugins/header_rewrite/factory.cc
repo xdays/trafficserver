@@ -50,7 +50,7 @@ operator_factory(const std::string& op)
   } else if (op == "no-op") {
     o = new OperatorNoOp();
   } else {
-    TSError("header_rewrite: unknown operator in header_rewrite: %s", op.c_str());
+    TSLogError("Unknown operator in header_rewrite: %s", op.c_str());
     return NULL;
   }
 
@@ -98,7 +98,7 @@ condition_factory(const std::string& cond)
   } else if (c_name == "DBM") {
     c = new ConditionDBM();
   } else {
-    TSError("header_rewrite: unknown condition in header_rewrite: %s",c_name.c_str());
+    TSLogError("unknown condition in header_rewrite: %s",c_name.c_str());
     return NULL;
   }
 

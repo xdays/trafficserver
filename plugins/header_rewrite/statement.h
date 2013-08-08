@@ -51,11 +51,11 @@ class Statement
   Statement()
     : _next(NULL), _pdata(NULL), _rsrc(RSRC_NONE), _initialized(false), _hook(TS_HTTP_READ_RESPONSE_HDR_HOOK)
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for Statement");
+    TSLogDebug("Calling CTOR for Statement");
   }
 
   virtual ~Statement() {
-    TSDebug(PLUGIN_NAME_DBG, "Calling DTOR for Statement");
+    TSLogDebug("Calling DTOR for Statement");
     free_pdata();
   }
 

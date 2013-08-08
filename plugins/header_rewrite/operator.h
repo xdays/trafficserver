@@ -48,7 +48,7 @@ public:
   Operator()
     : _mods(OPER_NONE)
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for Operator");
+    TSLogDebug("Calling CTOR for Operator");
   }
 
   void do_exec(const Resources& res) const {

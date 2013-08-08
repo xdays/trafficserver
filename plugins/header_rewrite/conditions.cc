@@ -54,7 +54,7 @@ ConditionStatus::initialize_hooks() {
 
 bool
 ConditionStatus::eval(const Resources& res) {
-  TSDebug(PLUGIN_NAME, "Evaluating STATUS()"); // TODO: It'd be nice to get the args here ...
+  TSLogDebug("Evaluating STATUS()"); // TODO: It'd be nice to get the args here ...
   return static_cast<const Matchers<TSHttpStatus>*>(_matcher)->test(res.resp_status);
 }
 
@@ -62,7 +62,7 @@ ConditionStatus::eval(const Resources& res) {
 void
 ConditionStatus::append_value(std::string& s, const Resources& res) {
   s += boost::lexical_cast<std::string>(res.resp_status);
-  TSDebug(PLUGIN_NAME, "Appending STATUS(%d) to evaluation value -> %s", res.resp_status, s.c_str());
+  TSLogDebug("Appending STATUS(%d) to evaluation value -> %s", res.resp_status, s.c_str());
 }
 
 
@@ -87,7 +87,7 @@ ConditionRandom::initialize(Parser& p)
 
 bool
 ConditionRandom::eval(const Resources& /* res ATS_UNUSED */) {
-  TSDebug(PLUGIN_NAME, "Evaluating RANDOM(%d)", _max);
+  TSLogDebug("Evaluating RANDOM(%d)", _max);
   return static_cast<const Matchers<unsigned int>*>(_matcher)->test(rand_r(&_seed) % _max);
 }
 
@@ -96,7 +96,7 @@ void
 ConditionRandom::append_value(std::string& s, const Resources& /* res ATS_UNUSED */)
 {
   s += boost::lexical_cast<std::string>(rand_r(&_seed) % _max);
-  TSDebug(PLUGIN_NAME, "Appending RANDOM(%d) to evaluation value -> %s", _max, s.c_str());
+  TSLogDebug("Appending RANDOM(%d) to evaluation value -> %s", _max, s.c_str());
 }
 
 
@@ -133,7 +133,7 @@ ConditionAccess::eval(const Resources& /* res ATS_UNUSED */)
 
   gettimeofday(&tv, NULL);
 
-  TSDebug(PLUGIN_NAME, "Evaluating ACCESS(%s)", _qualifier.c_str());
+  TSLogDebug("Evaluating ACCESS(%s)", _qualifier.c_str());
   if (tv.tv_sec > _next) {
     // There is a small "race" here, where we could end up calling access() a few times extra. I think
     // that is OK, and not worth protecting with a lock.
@@ -186,10 +186,10 @@ ConditionHeader::append_value(std::string& s, const Resources& res)
 
   if (bufp && hdr_loc) {
     field_loc = TSMimeHdrFieldFind(bufp, hdr_loc, _qualifier.c_str(), _qualifier.size());
-    TSDebug(PLUGIN_NAME, "Getting Header: %s, field_loc: %p", _qualifier.c_str(), field_loc);
+    TSLogDebug("Getting Header: %s, field_loc: %p", _qualifier.c_str(), field_loc);
     if (field_loc != NULL) {
       value = TSMimeHdrFieldValueStringGet(res.bufp, res.hdr_loc, field_loc, 0, &len);
-      TSDebug(PLUGIN_NAME, "Appending HEADER(%s) to evaluation value -> %.*s", _qualifier.c_str(), len, value);
+      TSLogDebug("Appending HEADER(%s) to evaluation value -> %.*s", _qualifier.c_str(), len, value);
       s.append(value, len);
       TSHandleMLocRelease(res.bufp, res.hdr_loc, field_loc);
     }
@@ -204,7 +204,7 @@ ConditionHeader::eval(const Resources& res)
 
   append_value(s, res);
   bool rval = static_cast<const Matchers<std::string>*>(_matcher)->test(s);
-  TSDebug(PLUGIN_NAME, "Evaluating HEADER(): %s - rval: %d", s.c_str(), rval);
+  TSLogDebug("Evaluating HEADER(): %s - rval: %d", s.c_str(), rval);
   return rval;
 }
 
@@ -225,7 +225,7 @@ ConditionPath::append_value(std::string& s, const Resources& res)
 { 
   int path_len = 0;
   const char *path = TSUrlPathGet(res._rri->requestBufp, res._rri->requestUrl, &path_len);
-  TSDebug(PLUGIN_NAME, "Appending PATH to evaluation value: %.*s", path_len, path);
+  TSLogDebug("Appending PATH to evaluation value: %.*s", path_len, path);
   s.append(path, path_len);
 }
 
@@ -235,11 +235,11 @@ ConditionPath::eval(const Resources& res)
   std::string s;
 
   if (NULL == res._rri) {
-    TSDebug(PLUGIN_NAME, "PATH requires remap initialization! Evaluating to false!");
+    TSLogDebug("PATH requires remap initialization! Evaluating to false!");
     return false;
   }
   append_value(s, res);
-  TSDebug(PLUGIN_NAME, "Evaluating PATH");
+  TSLogDebug("Evaluating PATH");
 
   return static_cast<const Matchers<std::string>*>(_matcher)->test(s);
 }
@@ -261,7 +261,7 @@ ConditionQuery::append_value(std::string& s, const Resources& res)
 {
   int query_len = 0;
   const char *query = TSUrlHttpQueryGet(res._rri->requestBufp, res._rri->requestUrl, &query_len);
-  TSDebug(PLUGIN_NAME, "Appending QUERY to evaluation value: %.*s", query_len, query);
+  TSLogDebug("Appending QUERY to evaluation value: %.*s", query_len, query);
   s.append(query, query_len);
 }
 
@@ -271,11 +271,11 @@ ConditionQuery::eval(const Resources& res)
   std::string s;
 
   if (NULL == res._rri) {
-    TSDebug(PLUGIN_NAME, "QUERY requires remap initialization! Evaluating to false!");
+    TSLogDebug("QUERY requires remap initialization! Evaluating to false!");
     return false;
   }
   append_value(s, res);
-  TSDebug(PLUGIN_NAME, "Evaluating QUERY - %s", s.c_str());
+  TSLogDebug("Evaluating QUERY - %s", s.c_str());
   return static_cast<const Matchers<std::string>*>(_matcher)->test(s);
 }
 
@@ -326,13 +326,13 @@ ConditionDBM::initialize(Parser& p)
     _file = _qualifier.substr(0, pos);
     //_dbm = mdbm_open(_file.c_str(), O_RDONLY, 0, 0, 0);
     // if (NULL != _dbm) {
-    //   TSDebug(PLUGIN_NAME, "Opened DBM file %s\n", _file.c_str());
+    //   TSLogDebug("Opened DBM file %s\n", _file.c_str());
     //   _key.set_value(_qualifier.substr(pos + 1));
     // } else {
-    //   TSError("Failed to open DBM file: %s", _file.c_str());
+    //   TSLogError("Failed to open DBM file: %s", _file.c_str());
     // }
   } else {
-    TSError("Malformed DBM condition");
+    TSLogError("Malformed DBM condition");
   }
 }
 
@@ -349,7 +349,7 @@ ConditionDBM::append_value(std::string& /* s ATS_UNUSED */, const Resources& /* 
   // if (key.size() > 0) {
   //   datum k, v;
 
-  //   TSDebug(PLUGIN_NAME, "Looking up DBM(\"%s\")", key.c_str());
+  //   TSLogDebug("Looking up DBM(\"%s\")", key.c_str());
   //   k.dptr = const_cast<char*>(key.c_str());
   //   k.dsize = key.size();
 
@@ -357,7 +357,7 @@ ConditionDBM::append_value(std::string& /* s ATS_UNUSED */, const Resources& /* 
   //   //v = mdbm_fetch(_dbm, k);
   //   TSMutexUnlock(_mutex);
   //   if (v.dsize > 0) {
-  //     TSDebug(PLUGIN_NAME, "Appending DBM(%.*s) to evaluation value -> %.*s", k.dsize, k.dptr, v.dsize, v.dptr);
+  //     TSLogDebug("Appending DBM(%.*s) to evaluation value -> %.*s", k.dsize, k.dptr, v.dsize, v.dptr);
   //     s.append(v.dptr, v.dsize);
   //   }
   // }
@@ -370,7 +370,7 @@ ConditionDBM::eval(const Resources& res)
   std::string s;
 
   append_value(s, res);
-  TSDebug(PLUGIN_NAME, "Evaluating DBM(%s, \"%s\")", _file.c_str(), s.c_str());
+  TSLogDebug("Evaluating DBM(%s, \"%s\")", _file.c_str(), s.c_str());
 
   return static_cast<const Matchers<std::string>*>(_matcher)->test(s);
 }
