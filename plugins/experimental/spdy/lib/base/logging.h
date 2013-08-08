@@ -21,18 +21,8 @@
 
 #include <string>
 
-extern "C" {
-
-// TS logging APIs don't get format attributes, so make sure we have a
-// compatible forward declaration.
-void TSDebug(const char *, const char *, ...)
-    __attribute__((format(printf, 2, 3)));
-
-void TSError(const char *, ...)
-    __attribute__((format(printf, 1, 2)));
-
-int TSIsDebugTagSet(const char*);
-}
+#define PLUGIN_NAME "spdy"
+#include <ts/debug.h>
 
 template <typename T> std::string stringof(const T&);
 #define cstringof(x) stringof(x).c_str()
@@ -45,8 +35,6 @@ template <typename T> std::string stringof(const T&);
 
 #define debug_protocol(fmt, ...) \
     debug_tag("spdy.protocol", "%s:%d " fmt, __func__, __LINE__, ##__VA_ARGS__)
-#define debug_plugin(fmt, ...) \
-    debug_tag("spdy.plugin", "%s:%d " fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define debug_http(fmt, ...) \
     debug_tag("spdy.http", "%s:%d " fmt, __func__, __LINE__, ##__VA_ARGS__)
 

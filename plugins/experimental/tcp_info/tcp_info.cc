@@ -39,6 +39,9 @@
 #include <sys/time.h>
 #include <arpa/inet.h>
 
+#define PLUGIN_NAME "tcp_info"
+#include <ts/debug.h>
+
 struct Config {
   int sample;
   const char* log_file;
@@ -66,7 +69,7 @@ load_config() {
     snprintf(config_file, sizeof(config_file), "%s/%s/%s", install_dir, "conf", "tcp_info.config");
     file = fopen(config_file, "r");
   }
-  TSDebug("tcp_info", "config file name: %s", config_file);
+  TSLogDebug("config file name: %s", config_file);
   assert(file != NULL);
 
   // read and parse the lines
@@ -83,8 +86,8 @@ load_config() {
     }
 
     if (value != NULL) {
-      TSDebug("tcp_info", "config key: %s", line);
-      TSDebug("tcp_info", "config value: %s", value);
+      TSLogDebug("config key: %s", line);
+      TSLogDebug("config value: %s", value);
       if (strcmp(line, "sample") == 0) {
         config.sample = atoi(value);
       } else if (strcmp(line, "log_file") == 0) {
@@ -97,10 +100,10 @@ load_config() {
     }
   }
 
-  TSDebug("tcp_info", "sample: %d", config.sample);
-  TSDebug("tcp_info", "log filename: %s", config.log_file);
-  TSDebug("tcp_info", "log_level: %d", config.log_level);
-  TSDebug("tcp_info", "hook: %d", config.hook);
+  TSLogDebug("sample: %d", config.sample);
+  TSLogDebug("log filename: %s", config.log_file);
+  TSLogDebug("log_level: %d", config.log_level);
+  TSLogDebug("hook: %d", config.hook);
 
   config.log_fd = open(config.log_file, O_APPEND | O_CREAT | O_RDWR, 0666);
   assert(config.log_fd > 0);
@@ -169,8 +172,8 @@ log_tcp_info(const char* event_name, const char* client_ip, const char* server_i
 
   ssize_t wrote = write(config.log_fd, buffer, bytes);
   assert(wrote == bytes);
-  TSDebug("tcp_info", "wrote: %d bytes to file: %s", bytes, config.log_file);
-  TSDebug("tcp_info", "logging: %s", buffer);
+  TSLogDebug("wrote: %d bytes to file: %s", bytes, config.log_file);
+  TSLogDebug("logging: %s", buffer);
 }
 
 
@@ -203,14 +206,14 @@ tcp_info_hook(TSCont /* contp ATS_UNUSED */, TSEvent event, void *edata)
     return 0;
   }
 
-  TSDebug("tcp_info", "tcp_info_hook called, event: %s", event_name);
+  TSLogDebug("tcp_info_hook called, event: %s", event_name);
 
   struct tcp_info tcp_info;
   int tcp_info_len = sizeof(tcp_info);
   int fd;
 
   if (TSHttpSsnClientFdGet(ssnp, &fd) != TS_SUCCESS) {
-    TSDebug("tcp_info", "error getting the client socket fd");
+    TSLogDebug("error getting the client socket fd");
     goto done;
   }
 
@@ -222,11 +225,11 @@ tcp_info_hook(TSCont /* contp ATS_UNUSED */, TSEvent event, void *edata)
       int random = 0;
       if (config.sample < 1000) {
         random = rand() % 1000;
-        TSDebug("tcp_info", "random: %d, config.sample: %d", random, config.sample);
+        TSLogDebug("random: %d, config.sample: %d", random, config.sample);
       }
 
       if (random < config.sample) {
-        TSDebug("tcp_info", "got the tcp_info struture and now logging");
+        TSLogDebug("got the tcp_info struture and now logging");
 
         // get the client address
         const struct sockaddr *client_addr = TSHttpSsnClientAddrGet(ssnp); 
@@ -246,10 +249,10 @@ tcp_info_hook(TSCont /* contp ATS_UNUSED */, TSEvent event, void *edata)
         log_tcp_info(event_name, client_str, server_str, tcp_info);
       }
     } else {
-      TSDebug("tcp_info", "tcp_info length is the wrong size");
+      TSLogDebug("tcp_info length is the wrong size");
     }
   } else {
-    TSDebug("tcp_info", "error calling getsockopt()");
+    TSLogDebug("error calling getsockopt()");
   }
 
 done:
@@ -271,7 +274,7 @@ TSPluginInit(int, const char *[]) // int argc, const char *argv[]
   info.support_email = (char*)"dev@trafficserver.apache.org";
 
   if (TSPluginRegister(TS_SDK_VERSION_3_0, &info) != TS_SUCCESS)
-    TSError("Plugin registration failed. \n");
+    TSLogError("Plugin registration failed.");
 
   // load the configuration file
   load_config();
@@ -280,20 +283,20 @@ TSPluginInit(int, const char *[]) // int argc, const char *argv[]
   // TODO: need another hook before the socket is closed, keeping it in for now because it will be easier to change if or when another hook is added to ATS
   if ((config.hook & 1) != 0) {
     TSHttpHookAdd(TS_HTTP_SSN_START_HOOK, TSContCreate(tcp_info_hook, NULL));
-    TSDebug("tcp_info", "added hook to the start of the TCP connection");
+    TSLogDebug("added hook to the start of the TCP connection");
   }
   if ((config.hook & 2) != 0) {
     TSHttpHookAdd(TS_HTTP_TXN_START_HOOK, TSContCreate(tcp_info_hook, NULL));
-    TSDebug("tcp_info", "added hook to the close of the transaction");
+    TSLogDebug("added hook to the close of the transaction");
   }
   if ((config.hook & 4) != 0) {
     TSHttpHookAdd(TS_HTTP_SEND_RESPONSE_HDR_HOOK, TSContCreate(tcp_info_hook, NULL));
-    TSDebug("tcp_info", "added hook to the sending of the headers");
+    TSLogDebug("added hook to the sending of the headers");
   }
   if ((config.hook & 8) != 0) {
     TSHttpHookAdd(TS_HTTP_SSN_CLOSE_HOOK, TSContCreate(tcp_info_hook, NULL));
-    TSDebug("tcp_info", "added hook to the close of the TCP connection");
+    TSLogDebug("added hook to the close of the TCP connection");
   }
 
-  TSDebug("tcp_info", "tcp info module registered");
+  TSLogDebug("tcp info module registered");
 }

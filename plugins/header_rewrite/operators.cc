@@ -45,10 +45,10 @@ OperatorRMHeader::exec(const Resources& res) const
   TSMLoc field_loc, tmp;
 
   if (res.bufp && res.hdr_loc) {
-    TSDebug(PLUGIN_NAME, "OperatorRMHeader::exec() invoked on header %s", _header.c_str());
+    TSLogDebug("OperatorRMHeader::exec() invoked on header %s", _header.c_str());
     field_loc = TSMimeHdrFieldFind(res.bufp, res.hdr_loc, _header.c_str(), _header.size());
     while (field_loc) {
-      TSDebug(PLUGIN_NAME, "\tdeleting header %s", _header.c_str());
+      TSLogDebug("\tdeleting header %s", _header.c_str());
       tmp = TSMimeHdrFieldNextDup(res.bufp, res.hdr_loc, field_loc);
       TSMimeHdrFieldDestroy(res.bufp, res.hdr_loc, field_loc);
       TSHandleMLocRelease(res.bufp, res.hdr_loc, field_loc);
@@ -66,7 +66,7 @@ OperatorSetStatus::initialize(Parser& p) {
   _status.set_value(p.get_arg());
 
   if (NULL == (_reason = TSHttpHdrReasonLookup((TSHttpStatus)_status.get_int_value()))) {
-    TSError("header_rewrite: unknown status %d", _status.get_int_value());
+    TSLogError("unknown status %d", _status.get_int_value());
     _reason_len = 0;
   } else {
     _reason_len = strlen(_reason);
@@ -120,7 +120,7 @@ OperatorSetStatusReason::exec(const Resources& res) const {
 
     _reason.append_value(reason, res);
     if (reason.size() > 0) {
-      TSDebug(PLUGIN_NAME, "Setting Status Reason to %s", reason.c_str());
+      TSLogDebug("Setting Status Reason to %s", reason.c_str());
       TSHttpHdrReasonSet(res.bufp, res.hdr_loc, reason.c_str(), reason.size());
     }
   }
@@ -153,17 +153,17 @@ OperatorAddHeader::exec(const Resources& res) const
 
   // Never set an empty header (I don't think that ever makes sense?)
   if (value.empty()) {
-    TSDebug(PLUGIN_NAME, "Would set header %s to an empty value, skipping", _header.c_str());
+    TSLogDebug("Would set header %s to an empty value, skipping", _header.c_str());
     return;
   }
   
   if (res.bufp && res.hdr_loc) {
-    TSDebug(PLUGIN_NAME, "OperatorAddHeader::exec() invoked on header %s: %s", _header.c_str(), value.c_str());
+    TSLogDebug("OperatorAddHeader::exec() invoked on header %s: %s", _header.c_str(), value.c_str());
     TSMLoc field_loc;
     
     if (TS_SUCCESS == TSMimeHdrFieldCreateNamed(res.bufp, res.hdr_loc, _header.c_str(), _header.size(), &field_loc)) {
       if (TS_SUCCESS == TSMimeHdrFieldValueStringInsert(res.bufp, res.hdr_loc, field_loc, -1, value.c_str(), value.size())) {
-        TSDebug(PLUGIN_NAME, "   adding header %s", _header.c_str());
+        TSLogDebug("   adding header %s", _header.c_str());
         //INKHttpHdrPrint(res.bufp, res.hdr_loc, reqBuff);
         TSMimeHdrFieldAppend(res.bufp, res.hdr_loc, field_loc);
       }
@@ -198,35 +198,35 @@ OperatorSetDestination::exec(const Resources& res) const
     case URL_QUAL_HOST:
       _value.append_value(value, res);
       if (value.empty()) {
-        TSDebug(PLUGIN_NAME, "Would set destination HOST to an empty value, skipping");
+        TSLogDebug("Would set destination HOST to an empty value, skipping");
       } else {
         const_cast<Resources&>(res).changed_url = true;
         TSUrlHostSet(res._rri->requestBufp, res._rri->requestUrl, value.c_str(), value.size());
-        TSDebug(PLUGIN_NAME, "OperatorSetHost::exec() invoked with HOST: %s", value.c_str());
+        TSLogDebug("OperatorSetHost::exec() invoked with HOST: %s", value.c_str());
       }
       break;
 
     case URL_QUAL_PATH:
       _value.append_value(value, res);
       if (value.empty()) {
-        TSDebug(PLUGIN_NAME, "Would set destination PATH to an empty value, skipping");
+        TSLogDebug("Would set destination PATH to an empty value, skipping");
       } else {
         const_cast<Resources&>(res).changed_url = true;
         TSUrlPathSet(res._rri->requestBufp, res._rri->requestUrl, value.c_str(), value.size());
-        TSDebug(PLUGIN_NAME, "OperatorSetHost::exec() invoked with PATH: %s", value.c_str());
+        TSLogDebug("OperatorSetHost::exec() invoked with PATH: %s", value.c_str());
       }
       break;
 
     case URL_QUAL_QUERY:
       _value.append_value(value, res);
       if (value.empty()) {
-        TSDebug(PLUGIN_NAME, "Would set destination QUERY to an empty value, skipping");
+        TSLogDebug("Would set destination QUERY to an empty value, skipping");
       } else {
         //1.6.4--Support for preserving QSA in case of set-destination
         if (get_oper_modifiers() & OPER_QSA) {
           int query_len = 0;
           const char* query = TSUrlHttpQueryGet(res._rri->requestBufp, res._rri->requestUrl, &query_len);
-          TSDebug(PLUGIN_NAME, "QSA mode, append original query string: %.*s", query_len, query);
+          TSLogDebug("QSA mode, append original query string: %.*s", query_len, query);
           //std::string connector = (value.find("?") == std::string::npos)? "?" : "&";
           value.append("&");
           value.append(query, query_len);
@@ -234,17 +234,17 @@ OperatorSetDestination::exec(const Resources& res) const
 
         const_cast<Resources&>(res).changed_url = true;
         TSUrlHttpQuerySet(res._rri->requestBufp, res._rri->requestUrl, value.c_str(), value.size());
-        TSDebug(PLUGIN_NAME, "OperatorSetHost::exec() invoked with QUERY: %s", value.c_str());
+        TSLogDebug("OperatorSetHost::exec() invoked with QUERY: %s", value.c_str());
       }
       break;
 
     case URL_QUAL_PORT:
       if (_value.get_int_value() <= 0) {
-        TSDebug(PLUGIN_NAME, "Would set destination PORT to an invalid range, skipping");
+        TSLogDebug("Would set destination PORT to an invalid range, skipping");
       } else {
         const_cast<Resources&>(res).changed_url = true;
         TSUrlPortSet(res._rri->requestBufp, res._rri->requestUrl, _value.get_int_value());
-        TSDebug(PLUGIN_NAME, "OperatorSetHost::exec() invoked with PORT: %d", _value.get_int_value());
+        TSLogDebug("OperatorSetHost::exec() invoked with PORT: %d", _value.get_int_value());
       }
       break;
     case URL_QUAL_URL:
@@ -270,7 +270,7 @@ OperatorSetRedirect::initialize(Parser& p) {
 
   if ((_status.get_int_value() != (int)TS_HTTP_STATUS_MOVED_PERMANENTLY) &&
       (_status.get_int_value() != (int)TS_HTTP_STATUS_MOVED_TEMPORARILY)) {
-    TSError("header_rewrite: unsupported redirect status %d", _status.get_int_value());
+    TSLogError("Unsupported redirect status %d", _status.get_int_value());
   }
 
   require_resources(RSRC_SERVER_RESPONSE_HEADERS);
@@ -296,7 +296,7 @@ OperatorSetRedirect::exec(const Resources& res) const
           int path_len = 0;
           const char *path = TSUrlPathGet(res._rri->requestBufp, res._rri->requestUrl, &path_len);
           if (path_len > 0) {
-            TSDebug(PLUGIN_NAME, "Find %%{PATH} in redirect url, replace it with: %.*s", path_len, path);
+            TSLogDebug("Find %%{PATH} in redirect url, replace it with: %.*s", path_len, path);
             value.insert(pos_path, path, path_len);
           }
       }
@@ -305,7 +305,7 @@ OperatorSetRedirect::exec(const Resources& res) const
       int query_len = 0;
       const char *query = TSUrlHttpQueryGet(res._rri->requestBufp, res._rri->requestUrl, &query_len);
       if ((get_oper_modifiers() & OPER_QSA) && (query_len > 0)) {
-          TSDebug(PLUGIN_NAME, "QSA mode, append original query string: %.*s", query_len, query);
+          TSLogDebug("QSA mode, append original query string: %.*s", query_len, query);
           std::string connector = (value.find("?") == std::string::npos)? "?" : "&";
           value.append(connector);
           value.append(query, query_len);
@@ -316,7 +316,7 @@ OperatorSetRedirect::exec(const Resources& res) const
       const char *start = value.c_str();
       const char *end = value.size() + start;
       TSUrlParse(res._rri->requestBufp, res._rri->requestUrl, &start, end);
-      TSDebug(PLUGIN_NAME, "OperatorSetRedirect::exec() invoked with destination=%s and status code=%d", 
+      TSLogDebug("OperatorSetRedirect::exec() invoked with destination=%s and status code=%d", 
               value.c_str(), _status.get_int_value());
     }
     
@@ -341,7 +341,7 @@ OperatorSetTimeoutOut::initialize(Parser& p) {
     _type = TO_OUT_DNS;
   } else {
     _type = TO_OUT_UNDEFINED;
-    TSError("header_rewrite: unsupported timeout qualifier: %s", p.get_arg().c_str());
+    TSLogError("unsupported timeout qualifier: %s", p.get_arg().c_str());
   }
 
   _timeout.set_value(p.get_value());
@@ -353,26 +353,26 @@ OperatorSetTimeoutOut::exec(const Resources& res) const
 {
   switch (_type) {
   case TO_OUT_ACTIVE:
-    TSDebug(PLUGIN_NAME, "OperatorSetTimeoutOut::exec(active, %d)", _timeout.get_int_value());
+    TSLogDebug("OperatorSetTimeoutOut::exec(active, %d)", _timeout.get_int_value());
     TSHttpTxnActiveTimeoutSet(res.txnp, _timeout.get_int_value());
     break;
 
   case TO_OUT_INACTIVE:
-    TSDebug(PLUGIN_NAME, "OperatorSetTimeoutOut::exec(inactive, %d)", _timeout.get_int_value());
+    TSLogDebug("OperatorSetTimeoutOut::exec(inactive, %d)", _timeout.get_int_value());
     TSHttpTxnNoActivityTimeoutSet(res.txnp, _timeout.get_int_value());
     break;
 
   case TO_OUT_CONNECT:
-    TSDebug(PLUGIN_NAME, "OperatorSetTimeoutOut::exec(connect, %d)", _timeout.get_int_value());
+    TSLogDebug("OperatorSetTimeoutOut::exec(connect, %d)", _timeout.get_int_value());
     TSHttpTxnConnectTimeoutSet(res.txnp, _timeout.get_int_value());
     break;
 
   case TO_OUT_DNS:
-    TSDebug(PLUGIN_NAME, "OperatorSetTimeoutOut::exec(dns, %d)", _timeout.get_int_value());
+    TSLogDebug("OperatorSetTimeoutOut::exec(dns, %d)", _timeout.get_int_value());
     TSHttpTxnDNSTimeoutSet(res.txnp, _timeout.get_int_value());
     break;
   default:
-    TSError("header_rewrite: unsupported timeout");
+    TSLogError("unsupported timeout");
     break;
   }
 }

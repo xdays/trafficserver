@@ -43,14 +43,14 @@ class ConditionTrue : public Condition
 public:
   ConditionTrue()
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for ConditionTrue");
+    TSLogDebug("Calling CTOR for ConditionTrue");
   }
 
   void append_value(std::string& s, const Resources& /* res ATS_UNUSED */) { s += "TRUE";  }
 
 protected:
   bool eval(const Resources& /* res ATS_UNUSED */) {
-    TSDebug(PLUGIN_NAME, "Evaluating TRUE()");
+    TSLogDebug("Evaluating TRUE()");
     return true;
   }
 
@@ -65,13 +65,13 @@ class ConditionFalse : public Condition
 public:
   ConditionFalse()
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for ConditionFalse");
+    TSLogDebug("Calling CTOR for ConditionFalse");
   }
   void append_value(std::string& s, const Resources& /* res ATS_UNUSED */) { s += "FALSE"; }
 
 protected:
   bool eval(const Resources& /* res ATS_UNUSED */) {
-    TSDebug(PLUGIN_NAME, "Evaluating FALSE()");
+    TSLogDebug("Evaluating FALSE()");
     return false;
   }
 
@@ -86,7 +86,7 @@ class ConditionStatus : public Condition
 public:
   ConditionStatus()
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for ConditionStatus");
+    TSLogDebug("Calling CTOR for ConditionStatus");
   }
   void initialize(Parser& p);
   void append_value(std::string& s, const Resources& res);
@@ -107,7 +107,7 @@ public:
   ConditionRandom()
     : _seed(0), _max(0)
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for ConditionRandom");
+    TSLogDebug("Calling CTOR for ConditionRandom");
   }
   void initialize(Parser& p);
   void append_value(std::string& s, const Resources& res);
@@ -130,7 +130,7 @@ public:
   ConditionAccess()
     : _next(0), _last(false)
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for ConditionAccess");
+    TSLogDebug("Calling CTOR for ConditionAccess");
   }
   void initialize(Parser& p);
   void append_value(std::string& s, const Resources& res);
@@ -153,7 +153,7 @@ public:
   explicit ConditionHeader(bool client = false)
     : _client(client)
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for ConditionHeader, client %d", client);
+    TSLogDebug("Calling CTOR for ConditionHeader, client %d", client);
   };
 
   void initialize(Parser& p);
@@ -174,7 +174,7 @@ class ConditionPath : public Condition
 public:
   explicit ConditionPath()
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for ConditionPath");
+    TSLogDebug("Calling CTOR for ConditionPath");
   };
 
   void initialize(Parser& p);
@@ -206,7 +206,7 @@ class ConditionQuery : public Condition
 public:
   explicit ConditionQuery()
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for ConditionQuery");
+    TSLogDebug("Calling CTOR for ConditionQuery");
   };
 
   void initialize(Parser& p);
@@ -228,7 +228,7 @@ public:
   explicit ConditionUrl(bool client = false)
     : _url_qual(URL_QUAL_NONE), _client(client)
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for ConditionUrl");
+    TSLogDebug("Calling CTOR for ConditionUrl");
   };
 
   void initialize(Parser& p);
@@ -256,7 +256,7 @@ public:
       _file("")
   {
     _mutex = TSMutexCreate();
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for ConditionDBM");
+    TSLogDebug("Calling CTOR for ConditionDBM");
   }
 
   ~ConditionDBM() {

@@ -52,7 +52,7 @@ public:
   Condition()
     : _qualifier(""), _cond_op(MATCH_EQUAL), _matcher(NULL), _mods(COND_NONE)
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for Condition");
+    TSLogDebug("Calling CTOR for Condition");
   }
 
   // Inline this, it's critical for speed (and only used twice)

@@ -39,6 +39,9 @@
 static const char* url_path = "_stats";
 static int url_path_len;
 
+#define PLUGIN_NAME "stats_ver_http"
+#include <ts/debug.h>
+
 typedef struct stats_state_t
 {
   TSVConn net_vc;
@@ -102,20 +105,20 @@ stats_add_resp_header(stats_state * my_state)
 static void
 stats_process_read(TSCont contp, TSEvent event, stats_state * my_state)
 {
-  TSDebug("istats", "stats_process_read(%d)", event);
+  TSLogDebug("event: %d", event);
   if (event == TS_EVENT_VCONN_READ_READY) {
     my_state->output_bytes = stats_add_resp_header(my_state);
     TSVConnShutdown(my_state->net_vc, 1, 0);
     my_state->write_vio = TSVConnWrite(my_state->net_vc, contp, my_state->resp_reader, INT64_MAX);
   } else if (event == TS_EVENT_ERROR) {
-    TSError("stats_process_read: Received TS_EVENT_ERROR\n");
+    TSLogError("Received TS_EVENT_ERROR");
   } else if (event == TS_EVENT_VCONN_EOS) {
     /* client may end the connection, simply return */
     return;
   } else if (event == TS_EVENT_NET_ACCEPT_FAILED) {
-    TSError("stats_process_read: Received TS_EVENT_NET_ACCEPT_FAILED\n");
+    TSLogError("Received TS_EVENT_NET_ACCEPT_FAILED");
   } else {
-    printf("Unexpected Event %d\n", event);
+    TSLogError("Unexpected Event %d", event);
     TSReleaseAssert(!"Unexpected Event");
   }
 }
@@ -143,7 +146,7 @@ json_out_stat(TSRecordType rec_type ATS_UNUSED, void *edata, int registered ATS_
   case TS_RECORDDATATYPE_STRING:
     APPEND_STAT(name, "%s", datum->rec_string); break;
   default:
-    TSDebug("istats", "unknown type for %s: %d", name, data_type);
+    TSLogDebug("unknown type for %s: %d", name, data_type);
     break;
   }
 }
@@ -166,7 +169,7 @@ stats_process_write(TSCont contp, TSEvent event, stats_state * my_state)
 {
   if (event == TS_EVENT_VCONN_WRITE_READY) {
     if (my_state->body_written == 0) {
-      TSDebug("istats", "plugin adding response body");
+      TSLogDebug("plugin adding response body");
       my_state->body_written = 1;
       json_out_stats(my_state);
       TSVIONBytesSet(my_state->write_vio, my_state->output_bytes);
@@ -175,7 +178,7 @@ stats_process_write(TSCont contp, TSEvent event, stats_state * my_state)
   } else if (TS_EVENT_VCONN_WRITE_COMPLETE) {
     stats_cleanup(contp, my_state);
   } else if (event == TS_EVENT_ERROR) {
-    TSError("stats_process_write: Received TS_EVENT_ERROR\n");
+    TSLogError("Received TS_EVENT_ERROR");
   } else {
     TSReleaseAssert(!"Unexpected Event");
   }
@@ -208,7 +211,7 @@ stats_origin(TSCont contp ATS_UNUSED, TSEvent event ATS_UNUSED, void *edata)
   TSMLoc hdr_loc = NULL, url_loc = NULL;
   TSEvent reenable = TS_EVENT_HTTP_CONTINUE;
 
-  TSDebug("istats", "in the read stuff");
+  TSLogDebug("in the read stuff");
  
   if (TSHttpTxnClientReqGet(txnp, &reqp, &hdr_loc) != TS_SUCCESS)
     goto cleanup;
@@ -218,7 +221,7 @@ stats_origin(TSCont contp ATS_UNUSED, TSEvent event ATS_UNUSED, void *edata)
   
   int path_len = 0;
   const char* path = TSUrlPathGet(reqp,url_loc,&path_len);
-  TSDebug("istats","Path: %.*s",path_len,path);
+  TSLogDebug("Path: %.*s",path_len,path);
   
   if (! (path_len != 0 && path_len == url_path_len  && !memcmp(path,url_path,url_path_len)) ) {
     goto notforme;
@@ -227,7 +230,7 @@ stats_origin(TSCont contp ATS_UNUSED, TSEvent event ATS_UNUSED, void *edata)
   TSSkipRemappingSet(txnp,1); //not strictly necessary, but speed is everything these days
 
   /* This is us -- register our intercept */
-  TSDebug("istats", "Intercepting request");
+  TSLogDebug("Intercepting request");
 
   icontp = TSContCreate(stats_dostuff, TSMutexCreate());
   my_state = (stats_state *) TSmalloc(sizeof(*my_state));
@@ -254,12 +257,12 @@ TSPluginInit(int argc, const char *argv[])
 {
   TSPluginRegistrationInfo info;
 
-  info.plugin_name = "stats";
+  info.plugin_name = "stats_over_http";
   info.vendor_name = "Apache Software Foundation";
-  info.support_email = "jesus@omniti.com";
+  info.support_email = "dev@trafficserver.apache.org";
 
   if (TSPluginRegister(TS_SDK_VERSION_2_0, &info) != TS_SUCCESS)
-    TSError("Plugin registration failed. \n");
+    TSLogError("Plugin registration failed. \n");
 
   if (argc > 1) {
     url_path = TSstrdup(argv[1] + ('/' == argv[1][0] ? 1 : 0)); /* Skip leading / */
@@ -269,5 +272,5 @@ TSPluginInit(int argc, const char *argv[])
   /* Create a continuation with a mutex as there is a shared global structure
      containing the headers to add */
   TSHttpHookAdd(TS_HTTP_READ_REQUEST_HDR_HOOK, TSContCreate(stats_origin, NULL));
-  TSDebug("istats", "stats module registered");
+  TSLogInfo("stats module registered");
 }

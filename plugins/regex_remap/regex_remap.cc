@@ -47,7 +47,8 @@
 #include "ink_atomic.h"
 #include "ink_time.h"
 
-static const char* PLUGIN_NAME = "regex_remap";
+#define PLUGIN_NAME "regex_remap"
+#include <ts/debug.h>
 
 // Constants
 static const int OVECCOUNT = 30; // We support $0 - $9 x2 ints, and this needs to be 1.5x that
@@ -121,13 +122,13 @@ class RemapRegex
     _num_subs(-1), _rex(NULL), _extra(NULL), _order(-1), _simple(false),
     _active_timeout(-1), _no_activity_timeout(-1), _connect_timeout(-1), _dns_timeout(-1)
   {
-    TSDebug(PLUGIN_NAME, "Calling constructor");
+    TSLogDebug("Calling constructor");
 
     _status = static_cast<TSHttpStatus>(0);
 
     if (!reg.empty()) {
       if (reg == ".") {
-        TSDebug(PLUGIN_NAME, "Rule is simple, and fast!");
+        TSLogDebug("Rule is simple, and fast!");
         _simple = true;
       }
       _rex_string = TSstrdup(reg.c_str());
@@ -158,7 +159,7 @@ class RemapRegex
       ++start;
       pos1 = opt.find_first_of("=", start);
       if (pos1 == std::string::npos) {
-        TSError("Malformed options: %s", opt.c_str());
+        TSLogError("Malformed options: %s", opt.c_str());
         break;
       }
       ++pos1;
@@ -178,7 +179,7 @@ class RemapRegex
       } else if (opt.compare(start, 11, "dns_timeout") == 0) {
         _dns_timeout = atoi(opt_val.c_str());
       } else {
-        TSError("Unknown options: %s", opt.c_str());
+        TSLogError("Unknown options: %s", opt.c_str());
       }
       start = opt.find_first_of("@", pos2);
     }
@@ -186,7 +187,7 @@ class RemapRegex
 
   ~RemapRegex()
   {
-    TSDebug(PLUGIN_NAME, "Calling destructor");
+    TSLogDebug("Calling destructor");
     if (_rex_string)
       TSfree(_rex_string);
     if (_subst)
@@ -280,7 +281,7 @@ class RemapRegex
 
         if (ix > -1) {
           if ((ix < 10) && (ix > ccount)) {
-            TSDebug(PLUGIN_NAME, "Trying to use unavailable substitution, check the regex!");
+            TSLogDebug("Trying to use unavailable substitution, check the regex!");
             return -1; // No substitutions available other than $0
           }
 
@@ -554,7 +555,7 @@ TSRemapInit(TSRemapInterface* api_info, char *errbuf, int errbuf_size)
   }
 
   setup_memory_allocation();
-  TSDebug(PLUGIN_NAME, "plugin is successfully initialized");
+  TSLogInfo("plugin is successfully initialized");
   return TS_SUCCESS;
 }
 
@@ -575,7 +576,7 @@ TSRemapNewInstance(int argc, char* argv[], void** ih, char* /* errbuf ATS_UNUSED
 
   *ih = (void*)ri;
   if (ri == NULL) {
-    TSError("Unable to create remap instance");
+    TSLogError("Unable to create remap instance");
     return TS_ERROR;
   }
 
@@ -607,10 +608,10 @@ TSRemapNewInstance(int argc, char* argv[], void** ih, char* /* errbuf ATS_UNUSED
 
       f.open((ri->filename).c_str(), std::ios::in);
       if (!f.is_open()) { // Try with the default path instead
-        TSError("unable to open %s", (ri->filename).c_str());
+        TSLogError("unable to open %s", (ri->filename).c_str());
         return TS_ERROR;
       }
-      TSDebug(PLUGIN_NAME, "loading regular expression maps from %s", (ri->filename).c_str());
+      TSLogDebug("loading regular expression maps from %s", (ri->filename).c_str());
 
       while (!f.eof()) {
         std::string line, regex, subst, options;
@@ -647,12 +648,12 @@ TSRemapNewInstance(int argc, char* argv[], void** ih, char* /* errbuf ATS_UNUSED
 
         if (regex.empty()) {
           // No regex found on this line
-          TSError("no regexp found in %s: line %d", (ri->filename).c_str(), lineno);
+          TSLogError("no regexp found in %s: line %d", (ri->filename).c_str(), lineno);
           continue;
         }
         if (subst.empty() && options.empty()) {
           // No substitution found on this line (and no options)
-          TSError("no substitution string found in %s: line %d", (ri->filename).c_str(), lineno);
+          TSLogError("no substitution string found in %s: line %d", (ri->filename).c_str(), lineno);
           continue;
         }
 
@@ -660,16 +661,15 @@ TSRemapNewInstance(int argc, char* argv[], void** ih, char* /* errbuf ATS_UNUSED
         RemapRegex* cur = new RemapRegex(regex, subst, options);
 
         if (cur == NULL) {
-          TSError("can't create a new regex remap rule");
+          TSLogError("can't create a new regex remap rule");
           continue;
         }
 
         if (cur->compile(&error, &erroffset) < 0) {
-          TSError("PCRE failed in %s (line %d) at offset %d: %s", (ri->filename).c_str(), lineno, erroffset, error);
+          TSLogError("PCRE failed in %s (line %d) at offset %d: %s", (ri->filename).c_str(), lineno, erroffset, error);
           delete(cur);
         } else {
-          TSDebug(PLUGIN_NAME, "added regex=%s with substitution=%s and options `%s'",
-                   regex.c_str(), subst.c_str(), options.c_str());
+          TSLogDebug("added regex=%s with substitution=%s and options `%s'", regex.c_str(), subst.c_str(), options.c_str());
           cur->set_order(++count);
           if (ri->first == NULL)
             ri->first = cur;
@@ -683,7 +683,7 @@ TSRemapNewInstance(int argc, char* argv[], void** ih, char* /* errbuf ATS_UNUSED
 
   // Make sure we got something...
   if (ri->first == NULL) {
-    TSError("Got no regular expressions from the maps");
+    TSLogError("Got no regular expressions from the maps");
     return TS_ERROR;
   }
 
@@ -743,7 +743,7 @@ TSRemapStatus
 TSRemapDoRemap(void* ih, TSHttpTxn txnp, TSRemapRequestInfo *rri)
 {
   if (NULL == ih) {
-    TSDebug(PLUGIN_NAME, "Falling back to default URL on regex remap without rules");
+    TSLogDebug("Falling back to default URL on regex remap without rules");
     return TSREMAP_NO_REMAP;
   }
 
@@ -796,7 +796,7 @@ TSRemapDoRemap(void* ih, TSHttpTxn txnp, TSRemapRequestInfo *rri)
     match_len += (req_url.query_len + 1);
   }
   match_buf[match_len] = '\0'; // NULL terminate the match string
-  TSDebug(PLUGIN_NAME, "Target match string is `%s'", match_buf);
+  TSLogDebug("Target match string is `%s'", match_buf);
 
   // Apply the regular expressions, in order. First one wins.
   while (re) {
@@ -806,19 +806,19 @@ TSRemapDoRemap(void* ih, TSHttpTxn txnp, TSRemapRequestInfo *rri)
 
       // Set timeouts
       if (re->active_timeout_option() > (-1)) {
-        TSDebug(PLUGIN_NAME, "Setting active timeout to %d", re->active_timeout_option());
+        TSLogDebug("Setting active timeout to %d", re->active_timeout_option());
         TSHttpTxnActiveTimeoutSet(txnp, re->active_timeout_option());
       }
       if (re->no_activity_timeout_option() > (-1)) {
-        TSDebug(PLUGIN_NAME, "Setting no activity timeout to %d", re->no_activity_timeout_option());
+        TSLogDebug("Setting no activity timeout to %d", re->no_activity_timeout_option());
         TSHttpTxnNoActivityTimeoutSet(txnp, re->no_activity_timeout_option());
       }
       if (re->connect_timeout_option() > (-1)) {
-        TSDebug(PLUGIN_NAME, "Setting connect timeout to %d", re->connect_timeout_option());
+        TSLogDebug("Setting connect timeout to %d", re->connect_timeout_option());
         TSHttpTxnConnectTimeoutSet(txnp, re->connect_timeout_option());
       }
       if (re->dns_timeout_option() > (-1)) {
-        TSDebug(PLUGIN_NAME, "Setting DNS timeout to %d", re->dns_timeout_option());
+        TSLogDebug("Setting DNS timeout to %d", re->dns_timeout_option());
         TSHttpTxnDNSTimeoutSet(txnp, re->dns_timeout_option());
       }
 
@@ -834,9 +834,9 @@ TSRemapDoRemap(void* ih, TSHttpTxn txnp, TSRemapRequestInfo *rri)
         dest = (char*)alloca(new_len+8);
         dest_len = re->substitute(dest, match_buf, ovector, lengths, rri, &req_url);
 
-        TSDebug(PLUGIN_NAME, "New URL is estimated to be %d bytes long, or less", new_len);
-        TSDebug(PLUGIN_NAME, "New URL is %s (length %d)", dest, dest_len);
-        TSDebug(PLUGIN_NAME, "    matched rule %d [%s]", re->order(), re->regex());
+        TSLogDebug("New URL is estimated to be %d bytes long, or less", new_len);
+        TSLogDebug("New URL is %s (length %d)", dest, dest_len);
+        TSLogDebug("    matched rule %d [%s]", re->order(), re->regex());
 
         // Check for a quick response, if the status option is set
         if (re->status_option() > 0) {
@@ -847,7 +847,7 @@ TSRemapDoRemap(void* ih, TSHttpTxn txnp, TSRemapRequestInfo *rri)
             break;
           }
 
-          TSDebug(PLUGIN_NAME, "Redirecting URL, status=%d", re->status_option());
+          TSLogDebug("Redirecting URL, status=%d", re->status_option());
           TSHttpTxnSetHttpRetStatus(txnp, re->status_option());
           rri->redirect = 1;
         }
@@ -859,7 +859,7 @@ TSRemapDoRemap(void* ih, TSHttpTxn txnp, TSRemapRequestInfo *rri)
           // Setup the new URL
           if (TS_PARSE_ERROR == TSUrlParse(rri->requestBufp, rri->requestUrl, &start, start + dest_len)) {
             TSHttpTxnSetHttpRetStatus(txnp, TS_HTTP_STATUS_INTERNAL_SERVER_ERROR);
-            TSError("can't parse substituted URL string");
+            TSLogError("can't parse substituted URL string");
           }
         }
         break;

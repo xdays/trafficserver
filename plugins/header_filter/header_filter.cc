@@ -69,8 +69,7 @@ cont_header_filter(TSCont /* contp ATS_UNUSED */, TSEvent event, void *edata)
       hook = TS_HTTP_SEND_RESPONSE_HDR_HOOK;
     break;
   default:
-    TSError("header_filter: unknown event for this plugin");
-    TSDebug(PLUGIN_NAME, "unknown event for this plugin");
+    TSLogError("Unknown event (%d) for this plugin", event);
     break;
   }
 
@@ -105,25 +104,25 @@ TSPluginInit(int argc, const char *argv[])
   info.support_email = const_cast<char*>("users@trafficserver.apache.org");
 
   if (TSPluginRegister(TS_SDK_VERSION_3_0 , &info) != TS_SUCCESS) {
-    TSError("header_filter: plugin registration failed.\n"); 
+    TSLogError("plugin registration failed."); 
   }
 
   // Parse the rules file
   if ((argc > 1)) {
     if (!global.parse_file(argv[1]))
-      TSError("header_filter: failed to parse configuration file");
+      TSLogError("failed to parse configuration file");
   }
 
   TSCont cont = TSContCreate(cont_header_filter, NULL);
 
   for (int i=TS_HTTP_READ_REQUEST_HDR_HOOK; i < TS_HTTP_LAST_HOOK; ++i) {
     if (global.supported_hook(static_cast<TSHttpHookID>(i))) {
-      TSDebug(PLUGIN_NAME, "Registering hook %d", i);
+      TSLogDebug("Registering hook %d", i);
       TSHttpHookAdd(static_cast<TSHttpHookID>(i), cont);
     }
   }
   if (TSHttpArgIndexReserve(PLUGIN_NAME, "Filter out headers in various hooks", &arg_idx) != TS_SUCCESS) {
-    TSError("header_filter: failed to reserve private data slot");
+    TSLogError("failed to reserve private data slot");
   }
 }
 
@@ -150,7 +149,7 @@ TSRemapInit(TSRemapInterface* api_info, char *errbuf, int errbuf_size)
     return TS_ERROR;
   }
 
-  TSDebug(PLUGIN_NAME, "remap plugin is successfully initialized");
+  TSLogInfo("remap plugin is successfully initialized");
   return TS_SUCCESS;                     /* success */
 }
 
@@ -159,7 +158,7 @@ TSReturnCode
 TSRemapNewInstance(int argc, char* argv[], void** ih, char* /* errbuf ATS_UNUSED */, int /* errbuf_size */)
 {
   if (argc < 3) {
-    TSError("Unable to create remap instance, need rules file");
+    TSLogError("Unable to create remap instance, need rules file");
     return TS_ERROR;
   } else {
     Rules* conf = new(Rules);
@@ -187,7 +186,7 @@ TSRemapStatus
 TSRemapDoRemap(void* ih, TSHttpTxn rh, TSRemapRequestInfo *rri)
 {
   if (NULL == ih) {
-    TSDebug(PLUGIN_NAME, "No Rules configured, falling back to default mapping rule");
+    TSLogDebug("No Rules configured, falling back to default mapping rule");
   } else {
     Rules* confp = static_cast<Rules*>(ih);
 

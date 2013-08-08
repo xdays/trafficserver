@@ -37,9 +37,9 @@ Acl::read_html(const char* fn)
   if (f.is_open()) {
     _html.append(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
     f.close();
-    TSDebug(PLUGIN_NAME, "Loaded HTML from %s", fn);
+    TSLogDebug("Loaded HTML from %s", fn);
   } else {
-    TSError("Unable to open HTML file %s", fn);
+    TSLogError("Unable to open HTML file %s", fn);
   }
 }
 
@@ -71,7 +71,7 @@ RegexAcl::parse_line(const char* filename, const std::string& line, int lineno)
         else if (tmp == "deny")
           _acl->set_allow(false);
         else {
-          TSError("Bad action on in %s:line %d: %s", filename, lineno, tmp.c_str());
+          TSLogError("Bad action on in %s:line %d: %s", filename, lineno, tmp.c_str());
           return false;
         }
         // The rest are "tokens"
@@ -81,7 +81,7 @@ RegexAcl::parse_line(const char* filename, const std::string& line, int lineno)
           _acl->add_token(tmp);
         }
         compile(regex, filename, lineno);
-        TSDebug(PLUGIN_NAME, "Added regex rule for /%s/", regex.c_str());
+        TSLogDebug("Added regex rule for /%s/", regex.c_str());
         return true;
       }
     }
@@ -102,11 +102,11 @@ RegexAcl::compile(const std::string& str, const char* filename, int lineno)
   if (NULL != _rex) {
     _extra = pcre_study(_rex, 0, &error);
     if ((NULL == _extra) && error && (*error != 0)) {
-      TSError("Failed to study regular expression in %s:line %d at offset %d: %s\n", filename, lineno, erroffset, error);
+      TSLogError("Failed to study regular expression in %s:line %d at offset %d: %s\n", filename, lineno, erroffset, error);
       return false;
     }
   } else {
-    TSError("Failed to compile regular expression in %s:line %d: %s\n", filename, lineno, error);
+    TSLogError("Failed to compile regular expression in %s:line %d: %s\n", filename, lineno, error);
     return false;
   }
 
@@ -140,9 +140,9 @@ CountryAcl::add_token(const std::string& str)
 
   if (iso > 0 && iso < NUM_ISO_CODES) {
     _iso_country_codes[iso] = true;
-    TSDebug(PLUGIN_NAME, "Added %s(%d) to remap rule, ACL=%d", str.c_str(), iso, _allow);
+    TSLogDebug("Added %s(%d) to remap rule, ACL=%d", str.c_str(), iso, _allow);
   } else {
-    TSError("Tried setting an ISO code (%d) outside the supported range", iso);
+    TSLogError("Tried setting an ISO code (%d) outside the supported range", iso);
   }
 }
 
@@ -171,9 +171,9 @@ CountryAcl::read_regex(const char* fn)
       }
     }
     f.close();
-    TSDebug(PLUGIN_NAME, "Loaded regex rules from %s", fn);
+    TSLogDebug("Loaded regex rules from %s", fn);
   } else {
-    TSError("Unable to open regex file %s", fn);
+    TSLogError("Unable to open regex file %s", fn);
   }
 }
 
@@ -190,7 +190,7 @@ CountryAcl::eval(TSRemapRequestInfo *rri, TSHttpTxn txnp) const
 
     do {
       if (acl->match(path, path_len)) {
-        TSDebug(PLUGIN_NAME, "Path = %.*s matched /%s/", path_len, path, acl->get_regex().c_str());
+        TSLogDebug("Path = %.*s matched /%s/", path_len, path, acl->get_regex().c_str());
         return acl->eval(rri, txnp);
       }
     } while ((acl = acl->next()));
@@ -212,7 +212,7 @@ CountryAcl::eval(TSRemapRequestInfo *rri, TSHttpTxn txnp) const
       iso = GeoIP_id_by_ipnum(gGI, ip);
       if (TSIsDebugTagSet(PLUGIN_NAME)) {
         const char* c = GeoIP_country_code_by_ipnum(gGI, ip);
-        TSDebug(PLUGIN_NAME, "eval(): IP=%u seems to come from ISO=%d / %s", ip, iso, c);
+        TSLogDebug("eval(): IP=%u seems to come from ISO=%d / %s", ip, iso, c);
       }
     }
     break;

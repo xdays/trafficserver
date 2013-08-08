@@ -54,7 +54,7 @@ Parser::preprocess(std::vector<std::string>& tokens)
       else
         _arg = "";
     } else {
-      TSError("header_rewrite: conditions must be embraced in %%{}");
+      TSLogError("Conditions must be embraced in %%{}");
       return;
     }
   } else {
@@ -87,7 +87,7 @@ Parser::preprocess(std::vector<std::string>& tokens)
         }
       } else {
         // Syntax error
-        TSError("header_rewrite: mods have to be embraced in []");
+        TSLogError("mods have to be embraced in []");
         return;
       }
     }
@@ -98,7 +98,7 @@ Parser::preprocess(std::vector<std::string>& tokens)
 Parser::Parser(const std::string& line) :
   _cond(false), _empty(false)
 {
-  TSDebug("header_rewrite_dbg", "Calling CTOR for Parser");
+  TSLogDebug("Calling CTOR for Parser");
 
   if (line[0] == '#') {
     _empty = true;

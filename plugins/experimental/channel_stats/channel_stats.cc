@@ -38,10 +38,10 @@
 #include <ts/experimental.h>
 #endif
 
-#include "debug_macros.h"
-
 #define PLUGIN_NAME     "channel_stats"
 #define PLUGIN_VERSION  "0.2"
+
+#include "debug_macros.h"
 
 #define MAX_SPEED 999999999
 
@@ -73,10 +73,10 @@ struct channel_stat {
   }
 
   inline void debug_channel() {
-    debug("response.bytes.content: %" PRIu64 "", response_bytes_content);
-    debug("response.count.2xx: %" PRIu64 "", response_count_2xx);
-    debug("response.count.5xx: %" PRIu64 "", response_count_5xx);
-    debug("speed.ua.bytes_per_sec_64k: %" PRIu64 "", speed_ua_bytes_per_sec_64k);
+    TSLogDebug("response.bytes.content: %" PRIu64 "", response_bytes_content);
+    TSLogDebug("response.count.2xx: %" PRIu64 "", response_count_2xx);
+    TSLogDebug("response.count.5xx: %" PRIu64 "", response_count_5xx);
+    TSLogDebug("speed.ua.bytes_per_sec_64k: %" PRIu64 "", speed_ua_bytes_per_sec_64k);
   }
 
   uint64_t response_bytes_content;
@@ -243,16 +243,16 @@ get_api_params(TSMBuffer   bufp,
   if (query_len == 0)
     return;
   tmp_query = TSstrndup(query, query_len);
-  debug_api("querystring: %s", tmp_query);
+  TSLogDebug("querystring: %s", tmp_query);
 
   if (has_query_param(tmp_query, "global", 1)) {
-    debug_api("found 'global' param");
+    TSLogDebug("found 'global' param");
     *show_global = 1;
   }
 
   *channel = (char *) TSmalloc(query_len);
   if (get_query_param(tmp_query, "channel=", *channel, query_len)) {
-    debug_api("found 'channel' param: %s", *channel);
+    TSLogDebug("found 'channel' param: %s", *channel);
   }
 
   std::stringstream ss;
@@ -262,7 +262,7 @@ get_api_params(TSMBuffer   bufp,
       ss.str(tmp_topn);
       ss >> *topn;
     }
-    debug_api("found 'topn' param: %d", *topn);
+    TSLogDebug("found 'topn' param: %d", *topn);
   }
 
   TSfree(tmp_query);
@@ -288,13 +288,13 @@ handle_read_req(TSCont /* contp ATS_UNUSED */, TSHttpTxn txnp)
   intercept_state *api_state;
 
   if (TSHttpTxnClientReqGet(txnp, &bufp, &hdr_loc) != TS_SUCCESS) {
-    error("couldn't retrieve client's request");
+    TSLogError("couldn't retrieve client's request");
     goto cleanup;
   }
 
   method = TSHttpHdrMethodGet(bufp, hdr_loc, &method_length);
   if (0 != strncmp(method, TS_HTTP_METHOD_GET, method_length)) {
-    debug("do not count %.*s method", method_length, method);
+    TSLogDebug("do not count %.*s method", method_length, method);
     goto cleanup;
   }
 
@@ -308,7 +308,7 @@ handle_read_req(TSCont /* contp ATS_UNUSED */, TSHttpTxn txnp)
   }
 
   // register our intercept
-  debug_api("Intercepting request");
+  TSLogDebug("Intercepting request");
   api_state = (intercept_state *) TSmalloc(sizeof(*api_state));
   memset(api_state, 0, sizeof(*api_state));
   get_api_params(bufp, url_loc,
@@ -322,12 +322,12 @@ handle_read_req(TSCont /* contp ATS_UNUSED */, TSHttpTxn txnp)
     if (!is_private_ip(client_addr4->sin_addr.s_addr)) {
       client_ip = (char *) TSmalloc(INET_ADDRSTRLEN);
       inet_ntop(AF_INET, &client_addr4->sin_addr, client_ip, INET_ADDRSTRLEN);
-      debug_api("%s is not a private IP, request denied", client_ip);
+      TSLogDebug("%s is not a private IP, request denied", client_ip);
       api_state->deny = 1;
       TSfree(client_ip);
     }
   } else {
-    debug_api("not IPv4, request denied"); // TODO check AF_INET6's private IP?
+    TSLogDebug("not IPv4, request denied"); // TODO check AF_INET6's private IP?
     api_state->deny = 1;
   }
 
@@ -357,13 +357,13 @@ get_pristine_host(TSHttpTxn txnp, TSMBuffer bufp, std::string &host)
   int pristine_port;
 
   if (TSHttpTxnPristineUrlGet(txnp, &bufp, &purl_loc) != TS_SUCCESS) {
-    debug("couldn't retrieve pristine url");
+    TSLogDebug("couldn't retrieve pristine url");
     return false;
   }
 
   pristine_host = TSUrlHostGet(bufp, purl_loc, &pristine_host_len);
   if (pristine_host_len == 0) {
-    debug("couldn't retrieve pristine host");
+    TSLogDebug("couldn't retrieve pristine host");
     return false;
   }
 
@@ -376,9 +376,9 @@ get_pristine_host(TSHttpTxn txnp, TSMBuffer bufp, std::string &host)
     host.append(buf);
   }
 
-  debug("pristine host: %.*s", pristine_host_len, pristine_host);
-  debug("pristine port: %d", pristine_port);
-  debug("host to lookup: %s", host.c_str());
+  TSLogDebug("pristine host: %.*s", pristine_host_len, pristine_host);
+  TSLogDebug("pristine port: %d", pristine_port);
+  TSLogDebug("host to lookup: %s", host.c_str());
 
   return true;
 }
@@ -398,11 +398,11 @@ get_channel_stat(const std::string &host,
     if (status_code_type != 2) {
       // if request's host isn't in your remap.config, response code will be 404
       // we should not count that channel in this situation
-      debug("not 2xx response, do not create stat for this channel now");
+      TSLogDebug("not 2xx response, do not create stat for this channel now");
       return false;
     }
     if (channel_stats.size() >= MAX_MAP_SIZE) {
-      warning("channel_stats map exceeds max size");
+      TSLogWarning("channel_stats map exceeds max size");
       return false;
     }
 
@@ -413,9 +413,9 @@ get_channel_stat(const std::string &host,
     TSMutexUnlock(stats_map_mutex);
     if (insert_ret.second == true) {
       // insert successfully
-      debug("******** new channel(#%zu) ********", channel_stats.size());
+      TSLogDebug("******** new channel(#%zu) ********", channel_stats.size());
     } else {
-      warning("stat of this channel already existed");
+      TSLogWarning("stat of this channel already existed");
       delete stat;
       stat = insert_ret.first->second;
     }
@@ -443,7 +443,7 @@ get_txn_user_speed(TSHttpTxn txnp, uint64_t body_bytes)
   if (start_time != 0 && end_time != 0 && end_time >= start_time) {
     interval_time = end_time - start_time;
   } else {
-    warning("invalid time, start: %" PRId64", end: %" PRId64"", start_time, end_time);
+    TSLogWarning("invalid time, start: %" PRId64", end: %" PRId64"", start_time, end_time);
     return 0;
   }
 
@@ -452,11 +452,11 @@ get_txn_user_speed(TSHttpTxn txnp, uint64_t body_bytes)
   else
     user_speed = (uint64_t)((float)body_bytes / interval_time * HRTIME_SECOND);
 
-  debug("start time: %" PRId64 "", start_time);
-  debug("end time: %" PRId64 "", end_time);
-  debug("interval time: %" PRId64 "", interval_time);
-  debug("interval seconds: %.5f", interval_time / (float)HRTIME_SECOND);
-  debug("speed bytes per second: %" PRIu64 "", user_speed);
+  TSLogDebug("start time: %" PRId64 "", start_time);
+  TSLogDebug("end time: %" PRId64 "", end_time);
+  TSLogDebug("interval time: %" PRId64 "", interval_time);
+  TSLogDebug("interval seconds: %.5f", interval_time / (float)HRTIME_SECOND);
+  TSLogDebug("speed bytes per second: %" PRIu64 "", user_speed);
 
   return user_speed;
 }
@@ -474,7 +474,7 @@ handle_txn_close(TSCont /* contp ATS_UNUSED */, TSHttpTxn txnp)
   std::string host;
 
   if (TSHttpTxnClientRespGet(txnp, &bufp, &hdr_loc) != TS_SUCCESS) {
-    debug("couldn't retrieve final response");
+    TSLogDebug("couldn't retrieve final response");
     return;
   }
 
@@ -486,8 +486,8 @@ handle_txn_close(TSCont /* contp ATS_UNUSED */, TSHttpTxn txnp)
   if (status_code_type == 2)
     __sync_fetch_and_add(&global_response_count_2xx_get, 1);
 
-  debug("body bytes: %" PRIu64 "", body_bytes);
-  debug("2xx req count: %" PRIu64 "", global_response_count_2xx_get);
+  TSLogDebug("body bytes: %" PRIu64 "", body_bytes);
+  TSLogDebug("2xx req count: %" PRIu64 "", global_response_count_2xx_get);
 
   if (!get_pristine_host(txnp, bufp, host))
     goto cleanup;
@@ -514,7 +514,7 @@ handle_event(TSCont contp, TSEvent event, void *edata) {
 
   switch (event) {
     case TS_EVENT_HTTP_READ_REQUEST_HDR: // for global contp
-      debug("---------- new request ----------");
+      TSLogDebug("---------- new request ----------");
       handle_read_req(contp, txnp);
       break;
     case TS_EVENT_HTTP_TXN_CLOSE: // for txn contp
@@ -522,7 +522,7 @@ handle_event(TSCont contp, TSEvent event, void *edata) {
       TSContDestroy(contp);
       break;
     default:
-      error("unknown event for this plugin");
+      TSLogError("unknown event for this plugin");
   }
 
   TSHttpTxnReenable(txnp, TS_EVENT_HTTP_CONTINUE);
@@ -583,20 +583,20 @@ stats_add_resp_header(intercept_state * api_state)
 static void
 stats_process_read(TSCont contp, TSEvent event, intercept_state * api_state)
 {
-  debug_api("stats_process_read(%d)", event);
+  TSLogDebug("stats_process_read(%d)", event);
   if (event == TS_EVENT_VCONN_READ_READY) {
     api_state->output_bytes = stats_add_resp_header(api_state);
     TSVConnShutdown(api_state->net_vc, 1, 0);
     api_state->write_vio = TSVConnWrite(api_state->net_vc, contp, api_state->resp_reader, INT64_MAX);
   } else if (event == TS_EVENT_ERROR) {
-    error_api("stats_process_read: Received TS_EVENT_ERROR\n");
+    TSLogError("Received TS_EVENT_ERROR");
   } else if (event == TS_EVENT_VCONN_EOS) {
     // client may end the connection, simply return
     return;
   } else if (event == TS_EVENT_NET_ACCEPT_FAILED) {
-    error_api("stats_process_read: Received TS_EVENT_NET_ACCEPT_FAILED\n");
+    TSLogError("Received TS_EVENT_NET_ACCEPT_FAILED");
   } else {
-    error_api("Unexpected Event %d\n", event);
+    TSLogError("Unexpected Event %d", event);
     // TSReleaseAssert(!"Unexpected Event");
   }
 }
@@ -633,7 +633,7 @@ json_out_stat(TSRecordType /* rec_type ATS_UNUSED */, void *edata, int /* regist
   case TS_RECORDDATATYPE_STRING:
     APPEND_STAT(name, "%s", datum->rec_string); break;
   default:
-    debug_api("unknown type for %s: %d", name, data_type);
+    TSLogDebug("unknown type for %s: %d", name, data_type);
     break;
   }
 }
@@ -672,7 +672,7 @@ json_out_channel_stats(intercept_state * api_state) {
   typedef std::vector<data_pair> stats_vec_t;
   smap_iterator it;
 
-  debug("appending channel stats");
+  TSLogDebug("appending channel stats");
 
   if (api_state->topn > -1 ||
       (api_state->channel && strlen(api_state->channel) > 0)) {
@@ -755,7 +755,7 @@ stats_process_write(TSCont contp, TSEvent event, intercept_state * api_state)
 {
   if (event == TS_EVENT_VCONN_WRITE_READY) {
     if (api_state->body_written == 0) {
-      debug_api("plugin adding response body");
+      TSLogDebug("plugin adding response body");
       api_state->body_written = 1;
       if (!api_state->deny)
         json_out_stats(api_state);
@@ -767,9 +767,9 @@ stats_process_write(TSCont contp, TSEvent event, intercept_state * api_state)
   } else if (TS_EVENT_VCONN_WRITE_COMPLETE) {
     stats_cleanup(contp, api_state);
   } else if (event == TS_EVENT_ERROR) {
-    error_api("stats_process_write: Received TS_EVENT_ERROR\n");
+    TSLogError("Received TS_EVENT_ERROR");
   } else {
-    error_api("Unexpected Event %d\n", event);
+    TSLogError("Unexpected Event %d", event);
     // TSReleaseAssert(!"Unexpected Event");
   }
 }
@@ -786,7 +786,7 @@ api_handle_event(TSCont contp, TSEvent event, void *edata)
   } else if (edata == api_state->write_vio) {
     stats_process_write(contp, event, api_state);
   } else {
-    error_api("Unexpected Event %d\n", event);
+    TSLogError("Unexpected Event %d", event);
     // TSReleaseAssert(!"Unexpected Event");
   }
   return 0;
@@ -798,23 +798,23 @@ void
 TSPluginInit(int argc, const char *argv[])
 {
   if (argc > 2) {
-    fatal("plugin does not accept more than 1 argument");
+    TSLogFatal("plugin does not accept more than 1 argument");
   } else if (argc == 2) {
     api_path = std::string(argv[1]);
-    debug_api("stats api path: %s", api_path.c_str());
+    TSLogDebug("stats api path: %s", api_path.c_str());
   }
 
   TSPluginRegistrationInfo info;
 
   info.plugin_name = (char *)PLUGIN_NAME;
-  info.vendor_name = (char *)"wkl";
-  info.support_email = (char *)"conanmind@gmail.com";
+  info.vendor_name = (char *)"Apache Software Foundation";
+  info.support_email = (char *)"dev@trafficerver.apache.org";
 
   if (TSPluginRegister(TS_SDK_VERSION_3_0, &info) != TS_SUCCESS) {
-    fatal("plugin registration failed.");
+    TSLogFatal("plugin registration failed.");
   }
 
-  info("%s(%s) plugin starting...", PLUGIN_NAME, PLUGIN_VERSION);
+  TSLogInfo("plugin v%s starting...", PLUGIN_VERSION);
 
   stats_map_mutex = TSMutexCreate();
 

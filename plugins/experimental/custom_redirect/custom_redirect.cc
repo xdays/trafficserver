@@ -34,6 +34,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define PLUGIN_NAME "custom_redirect"
+#include <ts/debug.h>
+
 static char* redirect_url_header = NULL;
 static int redirect_url_header_len = 0;
 static int return_code = TS_HTTP_STATUS_NONE;
@@ -51,15 +54,15 @@ handle_response (TSHttpTxn txnp, TSCont /* contp ATS_UNUSED */)
     int redirect_url_length;
 
     if (TSHttpTxnServerRespGet (txnp, &resp_bufp, &resp_loc) != TS_SUCCESS) {
-        TSError ("couldn't retrieve server response header\n");
+        TSLogError ("couldn't retrieve server response header");
     }
     else {
         if ( (status = TSHttpHdrStatusGet (resp_bufp, resp_loc)) == TS_HTTP_STATUS_NONE ) {
-            TSError ("couldn't retrieve status from client response header\n");
+            TSLogError ("couldn't retrieve status from client response header");
         }
         else {
             if(TSHttpTxnClientReqGet (txnp, &req_bufp, &req_loc) != TS_SUCCESS) {
-                TSError ("couldn't retrieve server response header\n");
+                TSLogError ("couldn't retrieve server response header");
             }
             else {
                 int method_len;
@@ -96,7 +99,7 @@ plugin_main_handler (TSCont contp, TSEvent event, void *edata)
         case TS_EVENT_HTTP_READ_RESPONSE_HDR:
         {
             TSHttpTxn txnp = (TSHttpTxn) edata;
-            TSDebug( "[custom_redirect1]", "MAIN_HANDLER::TS_HTTP_READ_RESPONSE_HDR_HOOK" );
+            TSLogDebug("MAIN_HANDLER::TS_HTTP_READ_RESPONSE_HDR_HOOK" );
             handle_response(txnp, contp);
             break;
         }
@@ -104,7 +107,7 @@ plugin_main_handler (TSCont contp, TSEvent event, void *edata)
         
         default:
         {
-            TSDebug( "[custom_redirect]", "default event"); 
+            TSLogDebug("default event"); 
             break;
         }
     }
@@ -161,10 +164,10 @@ TSPluginInit (int argc, const char *argv[])
     }
     /*
     if (TSPluginRegister (TS_SDK_VERSION_5_2 , &info) != TS_SUCCESS) {
-        TSError ("[custom_redirect] Plugin registration failed.");
+        TSLogError ("Plugin registration failed.");
     }
     */
-    TSError("[custom_redirect] Plugin registered successfully.");
+    TSLogError("Plugin registered successfully.");
     TSCont mainCont = TSContCreate(plugin_main_handler, NULL);
     TSHttpHookAdd (TS_HTTP_READ_RESPONSE_HDR_HOOK, mainCont);
 }

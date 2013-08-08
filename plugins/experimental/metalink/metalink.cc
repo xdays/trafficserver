@@ -38,6 +38,9 @@
 #include "ts/ts.h"
 #include "ink_defs.h"
 
+#define PLUGIN_NAME "metalink"
+#include <ts/debug.h>
+
 typedef struct {
   TSVConn connp;
   TSIOBuffer bufp;
@@ -137,7 +140,7 @@ cache_open_write(TSCont contp, void *edata)
   TSIOBufferReader readerp = TSIOBufferReaderAlloc(write_data->bufp);
 
   if (TSHttpTxnClientReqGet(transform_data->txnp, &bufp, &hdr_loc) != TS_SUCCESS) {
-    TSError("Couldn't retrieve client request header");
+    TSLogError("Couldn't retrieve client request header");
 
     return 0;
   }
@@ -528,7 +531,7 @@ http_send_response_hdr(TSCont contp, void *edata)
 
   data->txnp = (TSHttpTxn) edata;
   if (TSHttpTxnClientRespGet(data->txnp, &data->resp_bufp, &data->hdr_loc) != TS_SUCCESS) {
-    TSError("Couldn't retrieve client response header");
+    TSLogError("Couldn't retrieve client response header");
 
     TSHttpTxnReenable(data->txnp, TS_EVENT_HTTP_CONTINUE);
     TSfree(data);
@@ -649,7 +652,7 @@ handler(TSCont contp, TSEvent event, void *edata)
 }
 
 void
-TSPluginInit(int /* argc ATS_UNUSED */, const char */* argv ATS_UNUSED */[])
+TSPluginInit(int /* argc ATS_UNUSED */, const char * /* argv ATS_UNUSED */[])
 {
   TSPluginRegistrationInfo info;
 
@@ -658,7 +661,7 @@ TSPluginInit(int /* argc ATS_UNUSED */, const char */* argv ATS_UNUSED */[])
   info.support_email = const_cast<char*>("jack@nottheoilrig.com");
 
   if (TSPluginRegister(TS_SDK_VERSION_3_0, &info) != TS_SUCCESS) {
-    TSError("Plugin registration failed");
+    TSLogError("Plugin registration failed");
   }
 
   TSCont contp = TSContCreate(handler, NULL);

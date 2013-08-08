@@ -78,16 +78,16 @@ public:
                             &erroffset,           // for error offset
                             NULL);                // use default character tables
         if (!_rex)
-          TSError("header_filter: PCRE failed on %s at offset %d: %s\n", _qualifier, erroffset, error);
+          TSLogError("PCRE failed on %s at offset %d: %s\n", _qualifier, erroffset, error);
       }
     }
 
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for RulesEntry, header is %s, qualifier is %s", _header, _qualifier);
+    TSLogDebug("Calling CTOR for RulesEntry, header is %s, qualifier is %s", _header, _qualifier);
   }
 
   ~RulesEntry()
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling DTOR for RulesEntry");
+    TSLogDebug("Calling DTOR for RulesEntry");
     delete _next; // Potentially "deep" recursion, but should be OK.
     if (_header)
       TSfree(_header);
@@ -127,7 +127,7 @@ class Rules
 public:
   Rules()
   {
-    TSDebug(PLUGIN_NAME_DBG, "Calling CTOR for Rules");
+    TSLogDebug("Calling CTOR for Rules");
     memset(_entries, 0, sizeof(_entries));
   }
 

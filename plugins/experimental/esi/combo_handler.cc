@@ -38,7 +38,8 @@
 using namespace std;
 using namespace EsiLib;
 
-#define DEBUG_TAG "combo_handler"
+#define PLUGIN_NAME "combo_handler"
+#include <ts/debug.h>
 
 #define MAX_FILE_COUNT 30
 #define MAX_QUERY_LENGTH 3000
@@ -50,14 +51,6 @@ static string SIG_KEY_NAME;
 static string COMBO_HANDLER_PATH;
 static int COMBO_HANDLER_PATH_SIZE;
 
-#define LOG_ERROR(fmt, args...) do {                                    \
-    TSError("[%s:%d] [%s] ERROR: " fmt, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
-    TSDebug(DEBUG_TAG, "[%s:%d] [%s] ERROR: " fmt, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
-  } while (0)
-
-#define LOG_DEBUG(fmt, args...) do {                                    \
-    TSDebug(DEBUG_TAG, "[%s:%d] [%s] DEBUG: " fmt, __FILE__, __LINE__, __FUNCTION__ , ##args ); \
-  } while (0)
 
 typedef list<string> StringList;
 
@@ -124,7 +117,7 @@ bool
 InterceptData::init(TSVConn vconn)
 {
   if (initialized) {
-    LOG_ERROR("InterceptData already initialized!");
+    TSLogError("InterceptData already initialized!");
     return false;
   }
 
@@ -141,7 +134,7 @@ InterceptData::init(TSVConn vconn)
   fetcher = new HttpDataFetcherImpl(contp, creq.client_addr, "combohandler_fetcher");
 
   initialized = true;
-  LOG_DEBUG("InterceptData initialized!");
+  TSLogDebug("InterceptData initialized!");
   return true;
 }
 
@@ -210,30 +203,30 @@ TSPluginInit(int argc, const char *argv[])
     COMBO_HANDLER_PATH = DEFAULT_COMBO_HANDLER_PATH;
   }
   COMBO_HANDLER_PATH_SIZE = static_cast<int>(COMBO_HANDLER_PATH.size());
-  LOG_DEBUG("Combo handler path is [%s]", COMBO_HANDLER_PATH.c_str());
+  TSLogDebug("Combo handler path is [%s]", COMBO_HANDLER_PATH.c_str());
 
   SIG_KEY_NAME = ((argc > 2) && (strcmp(argv[2], "-") != 0)) ? argv[2] : "";
-  LOG_DEBUG("Signature key is [%s]", SIG_KEY_NAME.c_str());
+  TSLogDebug("Signature key is [%s]", SIG_KEY_NAME.c_str());
 
   TSReleaseAssert(pthread_key_create(&threadKey, NULL) == 0);
 
   TSCont rrh_contp = TSContCreate(handleReadRequestHeader, NULL);
   if (!rrh_contp) {
-    LOG_ERROR("Could not create read request header continuation");
+    TSLogError("Could not create read request header continuation");
     return;
   }
 
   TSHttpHookAdd(TS_HTTP_OS_DNS_HOOK, rrh_contp);
 
-  if (TSHttpArgIndexReserve(DEBUG_TAG, "will save plugin-enable flag here", &arg_idx) != TS_SUCCESS) {
-    LOG_ERROR("failed to reserve private data slot");
+  if (TSHttpArgIndexReserve(PLUGIN_NAME, "will save plugin-enable flag here", &arg_idx) != TS_SUCCESS) {
+    TSLogError("failed to reserve private data slot");
     return;
   } else {
-    LOG_DEBUG("arg_idx: %d", arg_idx);
+    TSLogDebug("arg_idx: %d", arg_idx);
   }
 
   Utils::init(&TSDebug, &TSError);
-  LOG_DEBUG("Plugin started");
+  TSLogDebug("Plugin started");
 }
 
 /*
@@ -252,18 +245,18 @@ handleReadRequestHeader(TSCont /* contp ATS_UNUSED */, TSEvent event, void *edat
   TSHttpTxn txnp = static_cast<TSHttpTxn>(edata);
 
   if (event != TS_EVENT_HTTP_OS_DNS) {
-    LOG_ERROR("unknown event for this plugin %d", event);
+    TSLogError("unknown event for this plugin %d", event);
     return 0;
   }
 
   if (1 != reinterpret_cast<intptr_t>(TSHttpTxnArgGet(txnp, arg_idx))) {
-    LOG_DEBUG("combo is disabled for this channel");
+    TSLogDebug("combo is disabled for this channel");
     TSHttpTxnReenable(txnp, TS_EVENT_HTTP_CONTINUE);
     return 0;
   }
   
-  LOG_DEBUG("combo is enabled for this channel");
-  LOG_DEBUG("handling TS_EVENT_HTTP_OS_DNS event...");
+  TSLogDebug("combo is enabled for this channel");
+  TSLogDebug("handling TS_EVENT_HTTP_OS_DNS event...");
 
   TSEvent reenable_to_event = TS_EVENT_HTTP_CONTINUE;
   TSMBuffer bufp;
@@ -275,7 +268,7 @@ handleReadRequestHeader(TSCont /* contp ATS_UNUSED */, TSEvent event, void *edat
       if (isComboHandlerRequest(bufp, hdr_loc, url_loc)) {
         TSCont contp = TSContCreate(handleServerEvent, TSMutexCreate());
         if (!contp) {
-          LOG_ERROR("[%s] Could not create intercept request", __FUNCTION__);
+          TSLogError("Could not create intercept request");
           reenable_to_event = TS_EVENT_HTTP_ERROR;
         } else {
           TSHttpTxnServerIntercept(contp, txnp);
@@ -285,16 +278,16 @@ handleReadRequestHeader(TSCont /* contp ATS_UNUSED */, TSEvent event, void *edat
           TSHttpTxnReqCacheableSet(txnp, 1);
           TSHttpTxnRespCacheableSet(txnp, 1);
           getClientRequest(txnp, bufp, hdr_loc, url_loc, int_data->creq);
-          LOG_DEBUG("Setup server intercept to handle client request");
+          TSLogDebug("Setup server intercept to handle client request");
         }
       }
       TSHandleMLocRelease(bufp, hdr_loc, url_loc);
     } else {
-      LOG_ERROR("Could not get request URL");
+      TSLogError("Could not get request URL");
     }
     TSHandleMLocRelease(bufp, TS_NULL_MLOC, hdr_loc);
   } else {
-    LOG_ERROR("Could not get client request");
+    TSLogError("Could not get client request");
   }
 
   TSHttpTxnReenable(txnp, reenable_to_event);
@@ -309,10 +302,10 @@ isComboHandlerRequest(TSMBuffer bufp, TSMLoc hdr_loc, TSMLoc url_loc)
   const char *method = TSHttpHdrMethodGet(bufp, hdr_loc, &method_len);
 
   if (!method) {
-    LOG_ERROR("Could not obtain method!");
+    TSLogError("Could not obtain method!");
   } else {
     if ((method_len != TS_HTTP_LEN_GET) || (strncasecmp(method, TS_HTTP_METHOD_GET, TS_HTTP_LEN_GET) != 0)) {
-      LOG_DEBUG("Unsupported method [%.*s]", method_len, method);
+      TSLogDebug("Unsupported method [%.*s]", method_len, method);
     } else {
       retval = true;
     }
@@ -321,12 +314,12 @@ isComboHandlerRequest(TSMBuffer bufp, TSMLoc hdr_loc, TSMLoc url_loc)
       int path_len;
       const char *path = TSUrlPathGet(bufp, url_loc, &path_len);
       if (!path) {
-        LOG_ERROR("Could not get path from request URL");
+        TSLogError("Could not get path from request URL");
         retval = false;
       } else {
         retval = (path_len == COMBO_HANDLER_PATH_SIZE) &&
           (strncasecmp(path, COMBO_HANDLER_PATH.c_str(), COMBO_HANDLER_PATH_SIZE) == 0);
-        LOG_DEBUG("Path [%.*s] is %s combo handler path", path_len, path, (retval ? "a" : "not a"));
+        TSLogDebug("Path [%.*s] is %s combo handler path", path_len, path, (retval ? "a" : "not a"));
       }
     }
   }
@@ -336,7 +329,7 @@ isComboHandlerRequest(TSMBuffer bufp, TSMLoc hdr_loc, TSMLoc url_loc)
 static bool
 getDefaultBucket(TSHttpTxn /* txnp ATS_UNUSED */, TSMBuffer bufp, TSMLoc hdr_obj, ClientRequest &creq)
 {
-  LOG_DEBUG("In getDefaultBucket");
+  TSLogDebug("In getDefaultBucket");
   TSMLoc field_loc;
   const char* host;
   int host_len = 0;
@@ -344,18 +337,18 @@ getDefaultBucket(TSHttpTxn /* txnp ATS_UNUSED */, TSMBuffer bufp, TSMLoc hdr_obj
 
   field_loc = TSMimeHdrFieldFind(bufp, hdr_obj, TS_MIME_FIELD_HOST, -1);
   if (field_loc == TS_NULL_MLOC) {
-    LOG_ERROR("Host field not found.");
+    TSLogError("Host field not found.");
     return false;
   }
 
   host = TSMimeHdrFieldValueStringGet(bufp, hdr_obj, field_loc, 0, &host_len);
   if (!host || host_len <= 0) {
-    LOG_ERROR("Error Extracting Host Header");
+    TSLogError("Error Extracting Host Header");
     TSHandleMLocRelease (bufp, hdr_obj, field_loc);
     return false;
   }
 
-  LOG_DEBUG("host: %.*s", host_len, host);
+  TSLogDebug("host: %.*s", host_len, host);
   creq.defaultBucket = string(host, host_len);
   defaultBucketFound = true;
 
@@ -373,7 +366,7 @@ getDefaultBucket(TSHttpTxn /* txnp ATS_UNUSED */, TSMBuffer bufp, TSMLoc hdr_obj
 
   TSHandleMLocRelease (bufp, hdr_obj, field_loc);
 
-  LOG_DEBUG("defaultBucket: %s", creq.defaultBucket.data());
+  TSLogDebug("defaultBucket: %s", creq.defaultBucket.data());
   return defaultBucketFound;
 }
 
@@ -384,18 +377,18 @@ getClientRequest(TSHttpTxn txnp, TSMBuffer bufp, TSMLoc hdr_loc, TSMLoc url_loc,
   const char *query = TSUrlHttpQueryGet(bufp, url_loc, &query_len);
 
   if (!query) {
-    LOG_ERROR("Could not get query from request URL");
+    TSLogError("Could not get query from request URL");
     creq.status = TS_HTTP_STATUS_BAD_REQUEST;
     return;
   } else {
     if (!getDefaultBucket(txnp, bufp, hdr_loc, creq))
       {
-        LOG_ERROR("failed getting Default Bucket for the request");
+        TSLogError("failed getting Default Bucket for the request");
         return;
       }
     if (query_len > MAX_QUERY_LENGTH) {
       creq.status = TS_HTTP_STATUS_BAD_REQUEST;
-      LOG_ERROR("querystring too long");
+      TSLogError("querystring too long");
       return;
     }
     parseQueryParameters(query, query_len, creq);
@@ -426,20 +419,20 @@ parseQueryParameters(const char *query, int query_len, ClientRequest &creq)
         if ((param_len >= 4) && (strncmp(param, "sig=", 4) == 0)) {
           if (SIG_KEY_NAME.size()) {
             if (!param_start_pos) {
-              LOG_DEBUG("Signature cannot be the first parameter in query [%.*s]", query_len, query);
+              TSLogDebug("Signature cannot be the first parameter in query [%.*s]", query_len, query);
             } else if (param_len == 4) {
-              LOG_DEBUG("Signature empty in query [%.*s]", query_len, query);
+              TSLogDebug("Signature empty in query [%.*s]", query_len, query);
             } else {
               // TODO - really verify the signature
-              LOG_DEBUG("Verified signature successfully");
+              TSLogDebug("Verified signature successfully");
               sig_verified = true;
             }
             if (!sig_verified) {
-              LOG_DEBUG("Signature [%.*s] on query [%.*s] is invalid", param_len - 4, param + 4,
+              TSLogDebug("Signature [%.*s] on query [%.*s] is invalid", param_len - 4, param + 4,
                         param_start_pos, query);
             }
           } else {
-            LOG_DEBUG("Verification not configured; ignoring signature...");
+            TSLogDebug("Verification not configured; ignoring signature...");
           }
           break; // nothing useful after the signature
       }
@@ -459,13 +452,13 @@ parseQueryParameters(const char *query, int query_len, ClientRequest &creq)
             }
           }
         }
-        LOG_DEBUG("Common prefix is [%.*s], common prefix path is [%.*s]", common_prefix_size, common_prefix,
+        TSLogDebug("Common prefix is [%.*s], common prefix path is [%.*s]", common_prefix_size, common_prefix,
                   common_prefix_path_size, common_prefix_path);
       }
       else {
         if (common_prefix_path_size) {
           if (colon_pos >= param_start_pos) { // we have a colon in this param as well?
-            LOG_ERROR("Ambiguous 'bucket': [%.*s] specified in common prefix and [%.*s] specified in "
+            TSLogError("Ambiguous 'bucket': [%.*s] specified in common prefix and [%.*s] specified in "
                       "current parameter [%.*s]", common_prefix_path_size, common_prefix_path,
                       colon_pos - param_start_pos, param, param_len, param);
             creq.file_urls.clear();
@@ -475,7 +468,7 @@ parseQueryParameters(const char *query, int query_len, ClientRequest &creq)
         }
         else if (colon_pos >= param_start_pos) { // we have a colon
           if ((colon_pos == param_start_pos) || (colon_pos == (i - 1))) {
-            LOG_ERROR("Colon-separated path [%.*s] has empty part(s)", param_len, param);
+            TSLogError("Colon-separated path [%.*s] has empty part(s)", param_len, param);
             creq.file_urls.clear();
             break;
           }
@@ -494,7 +487,7 @@ parseQueryParameters(const char *query, int query_len, ClientRequest &creq)
         }
         file_url.append(param, param_len);
         creq.file_urls.push_back(file_url);
-        LOG_DEBUG("Added file path [%s]", file_url.c_str());
+        TSLogDebug("Added file path [%s]", file_url.c_str());
         file_url.resize(file_base_url_size);
       }
     }
@@ -506,14 +499,14 @@ parseQueryParameters(const char *query, int query_len, ClientRequest &creq)
 if (!creq.file_urls.size()) {
   creq.status = TS_HTTP_STATUS_BAD_REQUEST;
  } else if (SIG_KEY_NAME.size() && !sig_verified) {
-  LOG_DEBUG("Invalid/empty signature found; Need valid signature");
+  TSLogDebug("Invalid/empty signature found; Need valid signature");
   creq.status = TS_HTTP_STATUS_FORBIDDEN;
   creq.file_urls.clear();
  }
 
 if (creq.file_urls.size() > MAX_FILE_COUNT) {
   creq.status = TS_HTTP_STATUS_BAD_REQUEST;
-  LOG_ERROR("too many files in url");
+  TSLogError("too many files in URL");
   creq.file_urls.clear();
 }
 
@@ -537,7 +530,7 @@ checkGzipAcceptance(TSMBuffer bufp, TSMLoc hdr_loc, ClientRequest &creq)
           creq.gzip_accepted = true;
         }
       } else {
-        LOG_DEBUG("Error while getting value # %d of header [%.*s]", i, TS_MIME_LEN_ACCEPT_ENCODING,
+        TSLogDebug("Error while getting value # %d of header [%.*s]", i, TS_MIME_LEN_ACCEPT_ENCODING,
                   TS_MIME_FIELD_ACCEPT_ENCODING);
       }
       if (creq.gzip_accepted) {
@@ -546,7 +539,7 @@ checkGzipAcceptance(TSMBuffer bufp, TSMLoc hdr_loc, ClientRequest &creq)
     }
     TSHandleMLocRelease(bufp, hdr_loc, field_loc);
   }
-  LOG_DEBUG("Client %s gzip encoding", (creq.gzip_accepted ? "accepts" : "does not accept"));
+  TSLogDebug("Client %s gzip encoding", (creq.gzip_accepted ? "accepts" : "does not accept"));
 }
 
 static int
@@ -557,68 +550,68 @@ handleServerEvent(TSCont contp, TSEvent event, void *edata)
 
   switch (event) {
   case TS_EVENT_NET_ACCEPT_FAILED:
-    LOG_DEBUG("Received net accept failed event; going to abort continuation");
+    TSLogDebug("Received net accept failed event; going to abort continuation");
     int_data->read_complete = int_data->write_complete = true;
     break;
 
   case TS_EVENT_NET_ACCEPT:
-    LOG_DEBUG("Received net accept event");
+    TSLogDebug("Received net accept event");
     if (!initRequestProcessing(*int_data, edata, write_response)) {
-      LOG_ERROR("Could not initialize request processing");
+      TSLogError("Could not initialize request processing");
       return 0;
     }
     break;
 
   case TS_EVENT_VCONN_READ_READY:
-    LOG_DEBUG("Received read ready event");
+    TSLogDebug("Received read ready event");
     if (!readInterceptRequest(*int_data)) {
-      LOG_ERROR("Error while reading from input vio");
+      TSLogError("Error while reading from input vio");
       return 0;
     }
     break;
 
   case TS_EVENT_VCONN_READ_COMPLETE:
   case TS_EVENT_VCONN_EOS:
-    LOG_DEBUG("Received read complete/eos event %d", event);
+    TSLogDebug("Received read complete/eos event %d", event);
     int_data->read_complete = true;
     break;
 
   case TS_EVENT_VCONN_WRITE_READY:
-    LOG_DEBUG("Received write ready event");
+    TSLogDebug("Received write ready event");
     break;
 
   case TS_EVENT_VCONN_WRITE_COMPLETE:
-    LOG_DEBUG("Received write complete event");
+    TSLogDebug("Received write complete event");
     int_data->write_complete = true;
     break;
 
   case TS_EVENT_ERROR:
-    LOG_ERROR("Received error event!");
+    TSLogError("Received error event!");
     break;
 
   default:
     if (int_data->fetcher && int_data->fetcher->isFetchEvent(event)) {
       if (!int_data->fetcher->handleFetchEvent(event, edata)) {
-        LOG_ERROR("Couldn't handle fetch request event %d", event);
+        TSLogError("Couldn't handle fetch request event %d", event);
       }
       write_response = int_data->fetcher->isFetchComplete();
     } else {
-      LOG_DEBUG("Unexpected event %d", event);
+      TSLogDebug("Unexpected event %d", event);
     }
     break;
   }
 
   if (write_response) {
     if (!writeResponse(*int_data)) {
-      LOG_ERROR("Couldn't write response");
+      TSLogError("Couldn't write response");
       int_data->write_complete = true;
     } else {
-      LOG_DEBUG("Wrote response successfully");
+      TSLogDebug("Wrote response successfully");
     }
   }
 
   if (int_data->read_complete && int_data->write_complete) {
-    LOG_DEBUG("Completed request processing. Shutting down...");
+    TSLogDebug("Completed request processing. Shutting down...");
     delete int_data;
     TSContDestroy(contp);
   }
@@ -631,7 +624,7 @@ initRequestProcessing(InterceptData &int_data, void *edata, bool &write_response
 {
   TSAssert(int_data.initialized == false);
   if (!int_data.init(static_cast<TSVConn>(edata))) {
-    LOG_ERROR("Could not initialize intercept data!");
+    TSLogError("Could not initialize intercept data!");
     return false;
   }
 
@@ -639,13 +632,13 @@ initRequestProcessing(InterceptData &int_data, void *edata, bool &write_response
     for (StringList::iterator iter = int_data.creq.file_urls.begin();
          iter != int_data.creq.file_urls.end(); ++iter) {
       if (!int_data.fetcher->addFetchRequest(*iter)) {
-        LOG_ERROR("Couldn't add fetch request for URL [%s]", iter->c_str());
+        TSLogError("Couldn't add fetch request for URL [%s]", iter->c_str());
       } else {
-        LOG_DEBUG("Added fetch request for URL [%s]", iter->c_str());
+        TSLogDebug("Added fetch request for URL [%s]", iter->c_str());
       }
     }
   } else {
-    LOG_DEBUG("Client request status [%d] not ok; Not fetching URLs", int_data.creq.status);
+    TSLogDebug("Client request status [%d] not ok; Not fetching URLs", int_data.creq.status);
     write_response = true;
   }
   return true;
@@ -657,7 +650,7 @@ readInterceptRequest(InterceptData &int_data)
   TSAssert(!int_data.read_complete);
   int avail = TSIOBufferReaderAvail(int_data.input.reader);
   if (avail == TS_ERROR) {
-    LOG_ERROR("Error while getting number of bytes available");
+    TSLogError("Error while getting number of bytes available");
     return false;
   }
 
@@ -677,7 +670,7 @@ readInterceptRequest(InterceptData &int_data)
       block = TSIOBufferBlockNext(block);
     }
   }
-  LOG_DEBUG("Consumed %d bytes from input vio", consumed);
+  TSLogDebug("Consumed %d bytes from input vio", consumed);
 
   TSIOBufferReaderConsume(int_data.input.reader, consumed);
 
@@ -685,7 +678,7 @@ readInterceptRequest(InterceptData &int_data)
   TSVIONDoneSet(int_data.input.vio, TSVIONDoneGet(int_data.input.vio) + consumed);
 
   if (!int_data.read_complete) {
-    LOG_DEBUG("Re-enabling input VIO as request header not completely read yet");
+    TSLogDebug("Re-enabling input VIO as request header not completely read yet");
     TSVIOReenable(int_data.input.vio);
   }
   return true;
@@ -710,46 +703,46 @@ writeResponse(InterceptData &int_data)
   int n_bytes_written = 0;
   if (int_data.creq.status != TS_HTTP_STATUS_OK) {
     if (!writeErrorResponse(int_data, n_bytes_written)) {
-      LOG_ERROR("Couldn't write response error");
+      TSLogError("Couldn't write response error");
       return false;
     }
   } else {
     n_bytes_written = OK_REPLY_LINE.size();
     if (TSIOBufferWrite(int_data.output.buffer, OK_REPLY_LINE.data(), n_bytes_written) == TS_ERROR) {
-      LOG_ERROR("Error while writing reply line");
+      TSLogError("Error while writing reply line");
       return false;
     }
 
     if (!writeStandardHeaderFields(int_data, n_bytes_written)) {
-      LOG_ERROR("Could not write standard header fields");
+      TSLogError("Could not write standard header fields");
       return false;
     }
 
     if (resp_header_fields.size()) {
       if (TSIOBufferWrite(int_data.output.buffer, resp_header_fields.data(),
                            resp_header_fields.size()) == TS_ERROR) {
-        LOG_ERROR("Error while writing additional response header fields");
+        TSLogError("Error while writing additional response header fields");
         return false;
       }
       n_bytes_written += resp_header_fields.size();
     }
 
     if (TSIOBufferWrite(int_data.output.buffer, "\r\n", 2) == TS_ERROR) {
-      LOG_ERROR("Error while writing header terminator");
+      TSLogError("Error while writing header terminator");
       return false;
     }
     n_bytes_written += 2;
 
     for (ByteBlockList::iterator iter = body_blocks.begin(); iter != body_blocks.end(); ++iter) {
       if (TSIOBufferWrite(int_data.output.buffer, iter->data, iter->data_len) == TS_ERROR) {
-        LOG_ERROR("Error while writing content");
+        TSLogError("Error while writing content");
         return false;
       }
       n_bytes_written += iter->data_len;
     }
   }
 
-  LOG_DEBUG("Wrote reply of size %d", n_bytes_written);
+  TSLogDebug("Wrote reply of size %d", n_bytes_written);
   TSVIONBytesSet(int_data.output.vio, n_bytes_written);
 
   TSVIOReenable(int_data.output.vio);
@@ -790,7 +783,7 @@ prepareResponse(InterceptData &int_data, ByteBlockList &body_blocks, string &res
           TSHandleMLocRelease(resp_data.bufp, resp_data.hdr_loc, field_loc);
         }
       } else {
-        LOG_ERROR("Could not get content for requested URL [%s]", iter->c_str());
+        TSLogError("Could not get content for requested URL [%s]", iter->c_str());
         int_data.creq.status = TS_HTTP_STATUS_BAD_REQUEST;
         break;
       }
@@ -805,13 +798,13 @@ prepareResponse(InterceptData &int_data, ByteBlockList &body_blocks, string &res
           resp_header_fields.append(line_buf, line_size);
         }
       }
-      LOG_DEBUG("Prepared response header field\n%s", resp_header_fields.c_str());
+      TSLogDebug("Prepared response header field\n%s", resp_header_fields.c_str());
     }
   }
 
   if ((int_data.creq.status == TS_HTTP_STATUS_OK) && int_data.creq.gzip_accepted) {
     if (!gzip(body_blocks, int_data.gzipped_data)) {
-      LOG_ERROR("Could not gzip content!");
+      TSLogError("Could not gzip content!");
       int_data.creq.status = TS_HTTP_STATUS_INTERNAL_SERVER_ERROR;
     } else {
       body_blocks.clear();
@@ -860,7 +853,7 @@ writeStandardHeaderFields(InterceptData &int_data, int &n_bytes_written)
 {
   if (TSIOBufferWrite(int_data.output.buffer, INVARIANT_FIELD_LINES,
                        INVARIANT_FIELD_LINES_SIZE) == TS_ERROR) {
-    LOG_ERROR("Error while writing invariant fields");
+    TSLogError("Error while writing invariant fields");
     return false;
   }
   n_bytes_written += INVARIANT_FIELD_LINES_SIZE;
@@ -869,7 +862,7 @@ writeStandardHeaderFields(InterceptData &int_data, int &n_bytes_written)
   int last_modified_line_size = strftime(last_modified_line, 128, "Last-Modified: %a, %d %b %Y %T GMT\r\n",
                                          gmtime(&time_now));
   if (TSIOBufferWrite(int_data.output.buffer, last_modified_line, last_modified_line_size) == TS_ERROR) {
-    LOG_ERROR("Error while writing last-modified fields");
+    TSLogError("Error while writing last-modified fields");
     return false;
   }
   n_bytes_written += last_modified_line_size;
@@ -892,7 +885,7 @@ writeErrorResponse(InterceptData &int_data, int &n_bytes_written)
     break;
   }
   if (TSIOBufferWrite(int_data.output.buffer, response->data(), response->size()) == TS_ERROR) {
-    LOG_ERROR("Error while writing error response");
+    TSLogError("Error while writing error response");
     return false;
   }
   n_bytes_written += response->size();
@@ -922,7 +915,7 @@ TSRemapInit(TSRemapInterface* api_info, char *errbuf, int errbuf_size)
     return TS_ERROR;
   }
 
-  TSDebug(DEBUG_TAG, "%s plugin's remap part is initialized", DEBUG_TAG);
+  TSLogDebug("remap part initialized");
 
   return TS_SUCCESS;
 }
@@ -933,7 +926,7 @@ TSRemapNewInstance(int argc, char* argv[], void** ih, char* errbuf,
 {
   *ih = NULL;
 
-  TSDebug(DEBUG_TAG, "%s Remap Instance for '%s' created", DEBUG_TAG, argv[0]);
+  TSLogDebug("Remap Instance for '%s' created", argv[0]);
   return TS_SUCCESS;
 }
 

@@ -20,8 +20,8 @@
 #include <netinet/in.h>
 #include <memory>
 
-#define AuthLogDebug(fmt, ...) TSDebug("AuthProxy", "%s: " fmt, __func__, ##__VA_ARGS__)
-#define AuthLogError(fmt, ...) TSError(fmt, ##__VA_ARGS__)
+#define PLUGIN_NAME "authproxy"
+#include <ts/debug.h>
 
 template <typename T>
 T * AuthNew() {

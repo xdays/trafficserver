@@ -50,7 +50,7 @@ TSRemapInit(TSRemapInterface* api_info, char *errbuf, int errbuf_size)
   //gGI = GeoIP_new(GEOIP_STANDARD); // This seems to break on threaded apps
   gGI = GeoIP_new(GEOIP_MMAP_CACHE);
 
-  TSDebug(PLUGIN_NAME, "remap plugin is successfully initialized");
+  TSLogDebug("remap plugin is successfully initialized");
   return TS_SUCCESS;                     /* success */
 }
 
@@ -59,13 +59,13 @@ TSReturnCode
 TSRemapNewInstance(int argc, char* argv[], void** ih, char* /* errbuf */, int /* errbuf_size */)
 {
   if (argc < 3) {
-    TSError("Unable to create remap instance, need more parameters");
+    TSLogError("Unable to create remap instance, need more parameters");
     return TS_ERROR;
   } else {
     Acl* a = NULL;
 
     if (!strncmp(argv[2], "country", 11)) {
-      TSDebug(PLUGIN_NAME, "creating an ACL rule with ISO country codes");
+      TSLogDebug("creating an ACL rule with ISO country codes");
       a = new CountryAcl();
     }
 
@@ -73,7 +73,7 @@ TSRemapNewInstance(int argc, char* argv[], void** ih, char* /* errbuf */, int /*
       a->process_args(argc, argv);
       *ih = static_cast<void*>(a);
     } else {
-      TSError("Unable to create remap instance, no supported ACL specified as first parameter");
+      TSLogError("Unable to create remap instance, no supported ACL specified as first parameter");
       return TS_ERROR;
     }
   }
@@ -97,7 +97,7 @@ TSRemapStatus
 TSRemapDoRemap(void* ih, TSHttpTxn rh, TSRemapRequestInfo *rri)
 {
   if (NULL == ih) {
-    TSDebug(PLUGIN_NAME, "No ACLs configured, this is probably a plugin bug");
+    TSLogDebug("No ACLs configured, this is probably a plugin bug");
   } else {
     Acl* a = static_cast<Acl*>(ih);
 

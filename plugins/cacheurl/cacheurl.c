@@ -42,6 +42,8 @@
 #define PATTERNCOUNT 30
 #define PLUGIN_NAME "cacheurl"
 
+#include "ts/debug.h"
+
 typedef struct {
     pcre *re;       /* Compiled regular expression */
     int tokcount;   /* Token count */
@@ -76,7 +78,7 @@ static int regex_substitute(char **buf, char *str, regex_info *info) {
             case PCRE_ERROR_NOMATCH:
                 break;
             default:
-                TSError("[%s] Matching error: %d\n", PLUGIN_NAME, matchcount);
+                TSLogError("Matching error: %d", matchcount);
                 break;
         }
         return 0;
@@ -85,7 +87,7 @@ static int regex_substitute(char **buf, char *str, regex_info *info) {
     /* Verify the replacement has the right number of matching groups */
     for (i=0; i<info->tokcount; i++) {
         if (info->tokens[i] >= matchcount) {
-            TSError("[%s] Invalid reference int replacement: $%d\n", PLUGIN_NAME, info->tokens[i]);
+            TSLogError("Invalid reference int replacement: $%d", info->tokens[i]);
             return 0;
         }
     }
@@ -138,8 +140,7 @@ static int regex_compile(regex_info **buf, char *pattern, char *replacement) {
     /* Precompile the regular expression */
     info->re =  pcre_compile(pattern, 0, &reerror, &reerroffset, NULL);
     if (!info->re) {
-        TSError("[%s] Compilation of regex '%s' failed at char %d: %s\n",
-                PLUGIN_NAME, pattern, reerroffset, reerror);
+        TSLogError("Compilation of regex '%s' failed at char %d: %s", pattern, reerroffset, reerror);
         status = 0;
     }
 
@@ -151,14 +152,11 @@ static int regex_compile(regex_info **buf, char *pattern, char *replacement) {
         for (i=0; i<strlen(replacement); i++) {
             if (replacement[i] == '$') {
                 if (tokcount >= TOKENCOUNT) {
-                    TSError("[%s] Error: too many tokens in replacement "
-                            "string: %s\n", PLUGIN_NAME, replacement);
+                    TSLogError("Too many tokens in replacement string: %s", replacement);
                     status = 0;
                     break;
                 } else if (replacement[i+1] < '0' || replacement[i+1] > '9') {
-                    TSError("[%s] Error: Invalid replacement token $%c in "
-                            "%s: should be $0 - $9\n", PLUGIN_NAME,
-                            replacement[i+1], replacement);
+                    TSLogError("Invalid replacement token $%c in %s: should be $0 - $9", replacement[i+1], replacement);
                     status = 0;
                     break;
                 } else {
@@ -212,12 +210,11 @@ static pr_list* load_config_file(const char *config_file) {
         sprintf(default_config_file, "%s/cacheurl.config", TSPluginDirGet());
         config_file = (const char *)default_config_file;
     }
-    TSDebug(PLUGIN_NAME, "Opening config file: %s", config_file);
+    TSLogDebug("Opening config file: %s", config_file);
     fh = TSfopen(config_file, "r");
 
     if (!fh) {
-        TSError("[%s] Unable to open %s. No patterns will be loaded\n",
-                PLUGIN_NAME, config_file);
+        TSLogError("Unable to open %s. No patterns will be loaded", config_file);
         return prl;
     }
 
@@ -241,8 +238,7 @@ static pr_list* load_config_file(const char *config_file) {
             spstart = strstr(buffer, "\t");
         }
         if (!spstart) {
-            TSError("[%s] ERROR: Invalid format on line %d. Skipping\n",
-                    PLUGIN_NAME, lineno);
+            TSLogError("Invalid format on line %d. Skipping", lineno);
             continue;
         }
         /* Find part of the line after any whitespace */
@@ -252,8 +248,7 @@ static pr_list* load_config_file(const char *config_file) {
         }
         if (*spend == 0) {
             /* We reached the end of the string without any non-whitepace */
-            TSError("[%s] ERROR: Invalid format on line %d. Skipping\n",
-                    PLUGIN_NAME, lineno);
+            TSLogError("Invalid format on line %d. Skipping", lineno);
             continue;
         }
 
@@ -262,21 +257,16 @@ static pr_list* load_config_file(const char *config_file) {
          * buffer is the first part of the line. spend is the second part just
          * after the whitespace */
         if (log) {
-            TSTextLogObjectWrite(log,
-                    "Adding pattern/replacement pair: '%s' -> '%s'",
-                    buffer, spend);
+            TSTextLogObjectWrite(log, "Adding pattern/replacement pair: '%s' -> '%s'", buffer, spend);
         }
-        TSDebug(PLUGIN_NAME, "Adding pattern/replacement pair: '%s' -> '%s'\n",
-                buffer, spend);
+        TSDebug("Adding pattern/replacement pair: '%s' -> '%s'\n", buffer, spend);
         retval = regex_compile(&info, buffer, spend);
         if (!retval) {
-            TSError("[%s] Error precompiling regex/replacement. Skipping.\n",
-                    PLUGIN_NAME);
+            TSLogError("Unable to precompile regex/replacement. Skipping.");
         }
         // TODO - remove patterncount and make pr_list infinite (linked list)
         if (prl->patterncount >= PATTERNCOUNT) {
-            TSError("[%s] Warning, too many patterns - skipping the rest"
-                    "(max: %d)\n", PLUGIN_NAME, PATTERNCOUNT);
+            TSLogWarning("Too many patterns - skipping the rest (max: %d)", PATTERNCOUNT);
             TSfree(info);
             break;
         }
@@ -302,8 +292,7 @@ static int rewrite_cacheurl(pr_list *prl, TSHttpTxn txnp) {
     if (ok) {
         url = TSHttpTxnEffectiveUrlStringGet(txnp, &url_length);
         if (!url) {
-            TSError("[%s] couldn't retrieve request url\n",
-                    PLUGIN_NAME);
+            TSLogError("Could not retrieve request URL");
             ok = 0;
         }
     }
@@ -320,16 +309,11 @@ static int rewrite_cacheurl(pr_list *prl, TSHttpTxn txnp) {
         }
         if (newurl) {
             if (log) {
-                TSTextLogObjectWrite(log,
-                        "Rewriting cache URL for %s to %s", url,
-                        newurl);
+                TSTextLogObjectWrite(log, "Rewriting cache URL for %s to %s", url, newurl);
             }
-            TSDebug(PLUGIN_NAME, "Rewriting cache URL for %s to %s\n",
-                    url, newurl);
-            if (TSCacheUrlSet(txnp, newurl, strlen(newurl))
-                    != TS_SUCCESS) {
-                TSError("[%s] Unable to modify cache url from "
-                        "%s to %s\n", PLUGIN_NAME, url, newurl);
+            TSLogDebug("Rewriting cache URL for %s to %s", url, newurl);
+            if (TS_SUCCESS != TSCacheUrlSet(txnp, newurl, strlen(newurl)) ) {
+                TSLogError("Unable to modify cache URL from %s to %s", url, newurl);
                 ok = 0;
             }
         }
@@ -363,8 +347,8 @@ static int handle_hook(TSCont contp, TSEvent event, void *edata) {
 
 /* Generic error message function for errors in plugin initialization */
 static void initialization_error(char *msg) {
-    TSError("[%s] %s\n", PLUGIN_NAME, msg);
-    TSError("[%s] Unable to initialize plugin (disabled).\n", PLUGIN_NAME);
+    TSLogError("%s", msg);
+    TSLogError("Unable to initialize plugin (disabled).");
 }
 
 TSReturnCode TSRemapInit(TSRemapInterface *api_info, char *errbuf,
@@ -401,7 +385,7 @@ TSReturnCode TSRemapInit(TSRemapInterface *api_info, char *errbuf,
         }
     }
 
-    TSDebug(PLUGIN_NAME, "remap plugin is successfully initialized");
+    TSLogInfo("remap plugin is successfully initialized");
     return TS_SUCCESS;
 }
 
@@ -415,7 +399,7 @@ TSReturnCode TSRemapNewInstance(int argc, char* argv[], void** ih, char* errbuf 
 
 void TSRemapDeleteInstance(void *ih) {
     // Clean up
-    TSDebug(PLUGIN_NAME, "Deleting remap instance");
+    TSLogDebug("Deleting remap instance");
     pr_list *prl = (pr_list *)ih;
     int i=0;
     while (prl->pr[i]) {
@@ -457,7 +441,7 @@ void TSPluginInit(int argc, const char *argv[]) {
         error = TSTextLogObjectCreate("cacheurl", TS_LOG_MODE_ADD_TIMESTAMP,
                 &log);
         if (!log || error == TS_ERROR) {
-            TSError("[%s] Error creating log file\n", PLUGIN_NAME);
+            TSLogError("Cannot create log file");
         }
     }
 

@@ -172,7 +172,7 @@ dispatch_spdy_control_frame(
         break;
     default:
         // SPDY 2.2.1 - MUST ignore unrecognized control frames
-        TSError("[spdy] ignoring invalid control frame type %u", header.control.type);
+        TSLogError("ignoring invalid control frame type %u", header.control.type);
     }
 
     io->reenable();
@@ -217,14 +217,14 @@ next_frame:
         // This should not fail because we only try to consume the header when
         // there are enough bytes to read the header. Experimentally, however,
         // it does fail. I wonder why.
-        TSError("TSIOBufferBlockReadStart failed unexpectedly");
+        TSLogError("TSIOBufferBlockReadStart failed unexpectedly");
         return;
     }
 
     if (nbytes < spdy::message_header::size) {
         // We should never get here, because we check for space before
         // entering. Unfortunately this does happen :(
-        debug_plugin("short read %" PRId64 " bytes, expected at least %u, real count %zu",
+        TSLogDebug("short read %" PRId64 " bytes, expected at least %u, real count %zu",
                 nbytes, spdy::message_header::size,
                 count_bytes_available(io->input.reader));
         return;
@@ -235,7 +235,7 @@ next_frame:
 
     if (header.is_control) {
         if (header.control.version != spdy::PROTOCOL_VERSION) {
-            TSError("[spdy] client is version %u, but we implement version %u",
+            TSLogError("client is version %u, but we implement version %u",
                 header.control.version, spdy::PROTOCOL_VERSION);
         }
     } else {
@@ -257,7 +257,7 @@ next_frame:
         if (header.is_control) {
             dispatch_spdy_control_frame(header, io, ptr);
         } else {
-            TSError("[spdy] no data frame support yet");
+            TSLogError("no data frame support yet");
         }
 
         if (TSIOBufferReaderAvail(io->input.reader) >= spdy::message_header::size) {
@@ -281,14 +281,14 @@ spdy_vconn_io(TSCont contp, TSEvent ev, void * edata)
 
     // Experimentally, we recieve the read or write TSVIO pointer as the
     // callback data.
-    //debug_plugin("received IO event %s, VIO=%p", cstringof(ev), vio);
+    //TSLogDebug("received IO event %s, VIO=%p", cstringof(ev), vio);
 
     switch (ev) {
     case TS_EVENT_VCONN_READ_READY:
     case TS_EVENT_VCONN_READ_COMPLETE:
         io = spdy_io_control::get(contp);
         nbytes = TSIOBufferReaderAvail(io->input.reader);
-        debug_plugin("received %d bytes", nbytes);
+        TSLogDebug("received %d bytes", nbytes);
         if ((unsigned)nbytes >= spdy::message_header::size) {
             consume_spdy_frame(io);
         }
@@ -304,7 +304,7 @@ spdy_vconn_io(TSCont contp, TSEvent ev, void * edata)
     case TS_EVENT_VCONN_EOS: // fallthru
     default:
         if (ev != TS_EVENT_VCONN_EOS) {
-            debug_plugin("unexpected accept event %s", cstringof(ev));
+            TSLogDebug("unexpected accept event %s", cstringof(ev));
         }
         io = spdy_io_control::get(contp);
         TSVConnClose(io->vconn);
@@ -333,7 +333,7 @@ spdy_accept_io(TSCont contp, TSEvent ev, void * edata)
         debug_protocol("accepted new SPDY session %p", io);
         break;
     default:
-        debug_plugin("unexpected accept event %s", cstringof(ev));
+        TSLogDebug("unexpected accept event %s", cstringof(ev));
     }
 
     return TS_EVENT_NONE;
@@ -346,10 +346,10 @@ spdy_setup_protocol(TSCont /* contp ATS_UNUSED */, TSEvent ev, void * /* edata A
   case TS_EVENT_LIFECYCLE_PORTS_INITIALIZED:
     TSReleaseAssert(TSNetAcceptNamedProtocol(TSContCreate(spdy_accept_io, TSMutexCreate()),
                                              TS_NPN_PROTOCOL_SPDY_2) == TS_SUCCESS);
-    debug_plugin("registered named protocol endpoint for %s", TS_NPN_PROTOCOL_SPDY_2);
+    TSLogDebug("registered named protocol endpoint for %s", TS_NPN_PROTOCOL_SPDY_2);
     break;
   default:
-    TSError("[spdy] Protocol registration failed");
+    TSLogError("Protocol registration failed");
     break;
   }
 
@@ -371,10 +371,10 @@ TSPluginInit(int argc, const char * argv[])
     info.support_email = (char *)"jamespeach@me.com";
 
     if (TSPluginRegister(TS_SDK_VERSION_3_0, &info) != TS_SUCCESS) {
-        TSError("[spdy] Plugin registration failed");
+        TSLogError("Plugin registration failed");
     }
 
-    debug_plugin("initializing");
+    TSLogDebug("initializing");
 
     for (;;) {
         switch (getopt_long(argc, (char * const *)argv, "s", longopts, NULL)) {
@@ -384,7 +384,7 @@ TSPluginInit(int argc, const char * argv[])
         case -1:
             goto init;
         default:
-            TSError("[spdy] usage: spdy.so [--system-resolver]");
+            TSLogError("usage: spdy.so [--system-resolver]");
         }
     }
 

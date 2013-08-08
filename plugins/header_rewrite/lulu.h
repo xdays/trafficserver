@@ -43,8 +43,8 @@
 #error "Define barriers"
 #endif
 
-extern const char* PLUGIN_NAME;
-extern const char* PLUGIN_NAME_DBG;
+#define PLUGIN_NAME "header_rewrite"
+#include <ts/debug.h>
 
 
 // From google styleguide: http://google-styleguide.googlecode.com/svn/trunk/cppguide.xml

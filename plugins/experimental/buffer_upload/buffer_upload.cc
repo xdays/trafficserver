@@ -44,22 +44,12 @@
 #define true 1
 #define false 0
 
-/* #define DEBUG 1 */
-#define DEBUG_TAG "buffer_upload-dbg"
+#define PLUGIN_NAME "buffer_upload"
+#include <ts/debug.h>
 
 /**************************************************
    Log macros for error code return verification 
 **************************************************/
-#define PLUGIN_NAME "buffer_upload"
-//#define LOG_SET_FUNCTION_NAME(NAME) const char * FUNCTION_NAME = NAME
-#define LOG_ERROR(API_NAME) {						\
-    TSError("%s: %s %s %s File %s, line number %d", PLUGIN_NAME, API_NAME, "APIFAIL", \
-             __FUNCTION__, __FILE__, __LINE__);			\
-  }
-#define LOG_ERROR_AND_RETURN(API_NAME) {	\
-    LOG_ERROR(API_NAME);			\
-    return TS_ERROR;				\
-  }
 
 #define VALID_PTR(X) (X != NULL)
 #define NOT_VALID_PTR(X) (X == NULL)
@@ -157,8 +147,8 @@ print_buffer(TSIOBufferReader reader)
   block = TSIOBufferReaderStart(reader);
   while (block != NULL) {
     ptr = TSIOBufferBlockReadStart(block, reader, &size);
-    TSDebug(DEBUG_TAG, "buffer size: %d", size);
-    TSDebug(DEBUG_TAG, "buffer: %.*s", size, ptr);
+    TSLogDebug("buffer size: %d", size);
+    TSLogDebug("buffer: %.*s", size, ptr);
     block = TSIOBufferBlockNext(block);
   }
 }
@@ -178,11 +168,13 @@ write_buffer_to_disk(TSIOBufferReader reader, pvc_state * my_state, TSCont contp
     ptr = TSIOBufferBlockReadStart(block, reader, &size);
     pBuf = (char *) TSmalloc(sizeof(char) * size);
     if (pBuf == NULL) {
-      LOG_ERROR_AND_RETURN("TSAIOWrite");
+      TSLogError("TSAIOWrite");
+      return TS_ERROR;
     }
     memcpy(pBuf, ptr, size);
     if (TSAIOWrite(my_state->fd, my_state->write_offset, pBuf, size, contp) < 0) {
-      LOG_ERROR_AND_RETURN("TSAIOWrite");
+      TSLogError("TSAIOWrite");
+      return TS_ERROR;
     }
     my_state->write_offset += size;
     block = TSIOBufferBlockNext(block);
@@ -198,21 +190,25 @@ call_httpconnect(TSCont contp, pvc_state * my_state)
   //unsigned int client_ip = TSHttpTxnClientIPGet(my_state->http_txnp);
   sockaddr const *client_ip = TSHttpTxnClientAddrGet(my_state->http_txnp);
 
-  TSDebug(DEBUG_TAG, "call TSHttpConnect() ...");
+  TSLogDebug("call TSHttpConnect() ...");
   if ((my_state->net_vc = TSHttpConnect(client_ip)) == NULL) {
-    LOG_ERROR_AND_RETURN("TSHttpConnect");
+    TSLogError("TSHttpConnect");
+    return TS_ERROR;
   }
   my_state->p_write_vio = TSVConnWrite(my_state->p_vc, contp, my_state->resp_reader, INT_MAX);
   if (my_state->p_write_vio == NULL) {
-    LOG_ERROR_AND_RETURN("TSVConnWrite");
+    TSLogError("TSVConnWrite");
+    return TS_ERROR;
   }
   my_state->n_read_vio = TSVConnRead(my_state->net_vc, contp, my_state->resp_buffer, INT_MAX);
   if (my_state->n_read_vio == NULL) {
-    LOG_ERROR_AND_RETURN("TSVConnRead");
+    TSLogError("TSVConnRead");
+    return TS_ERROR;
   }
   my_state->n_write_vio = TSVConnWrite(my_state->net_vc, contp, my_state->req_reader, INT_MAX);
   if (my_state->n_write_vio == NULL) {
-    LOG_ERROR_AND_RETURN("TSVConnWrite");
+    TSLogError("TSVConnWrite");
+    return TS_ERROR;
   }
   return TS_SUCCESS;
 }
@@ -277,7 +273,7 @@ pvc_check_done(TSCont contp, pvc_state * my_state)
 static void
 pvc_process_accept(TSCont contp, int event, void *edata, pvc_state * my_state)
 {
-  TSDebug(DEBUG_TAG, "plugin called: pvc_process_accept with event %d", event);
+  TSLogDebug("plugin called: pvc_process_accept with event %d", event);
 
   if (event == TS_EVENT_NET_ACCEPT) {
     my_state->p_vc = (TSVConn) edata;
@@ -294,13 +290,13 @@ pvc_process_accept(TSCont contp, int event, void *edata, pvc_state * my_state)
 
     if ((my_state->req_buffer == NULL) || (my_state->req_reader == NULL)
         || (my_state->resp_buffer == NULL) || (my_state->resp_reader == NULL)) {
-      LOG_ERROR("TSIOBufferCreate || TSIOBufferReaderAlloc");
+      TSLogError("TSIOBufferCreate || TSIOBufferReaderAlloc");
       TSVConnClose(my_state->p_vc);
       pvc_cleanup(contp, my_state);
     } else {
       my_state->p_read_vio = TSVConnRead(my_state->p_vc, contp, my_state->req_buffer, INT_MAX);
       if (my_state->p_read_vio == NULL) {
-        LOG_ERROR("TSVConnRead");
+        TSLogError("TSVConnRead");
       }
     }
   } else if (event == TS_EVENT_NET_ACCEPT_FAILED) {
@@ -315,7 +311,7 @@ pvc_process_p_read(TSCont contp, TSEvent event, pvc_state * my_state)
 {
   int size, consume_size;
 
-  //TSDebug(DEBUG_TAG, "plugin called: pvc_process_p_read with event %d", event);
+  //TSLogDebug("plugin called: pvc_process_p_read with event %d", event);
 
   switch (event) {
   case TS_EVENT_VCONN_READ_READY:
@@ -335,7 +331,7 @@ pvc_process_p_read(TSCont contp, TSEvent event, pvc_state * my_state)
       if (uconfig->use_disk_buffer) {
         TSMutexLock(my_state->disk_io_mutex);
         if (write_buffer_to_disk(my_state->req_hdr_reader, my_state, contp) == TS_ERROR) {
-          LOG_ERROR("write_buffer_to_disk");
+          TSLogError("write_buffer_to_disk");
           uconfig->use_disk_buffer = 0;
           close(my_state->fd);
           remove(my_state->filename);
@@ -347,7 +343,7 @@ pvc_process_p_read(TSCont contp, TSEvent event, pvc_state * my_state)
         if (uconfig->use_disk_buffer) {
           TSMutexLock(my_state->disk_io_mutex);
           if (write_buffer_to_disk(my_state->req_reader, my_state, contp) == TS_ERROR) {
-            TSDebug(DEBUG_TAG, "Error in writing to disk");
+            TSLogDebug("Error in writing to disk");
           }
           TSMutexUnlock(my_state->disk_io_mutex);
         } else {
@@ -368,7 +364,7 @@ pvc_process_p_read(TSCont contp, TSEvent event, pvc_state * my_state)
         if (size > 0) {
           TSMutexLock(my_state->disk_io_mutex);
           if (write_buffer_to_disk(my_state->req_reader, my_state, contp) == TS_ERROR) {
-            TSDebug(DEBUG_TAG, "Error in writing to disk");
+            TSLogDebug("Error in writing to disk");
           }
           TSIOBufferReaderConsume(my_state->req_reader, size);
           TSMutexUnlock(my_state->disk_io_mutex);
@@ -377,7 +373,7 @@ pvc_process_p_read(TSCont contp, TSEvent event, pvc_state * my_state)
         // if the entire post data had been read in memory, then connect to origin server.
         if (size >= my_state->req_size) {
           if (call_httpconnect(contp, my_state) == TS_ERROR) {
-            LOG_ERROR("call_httpconnect");
+            TSLogError("call_httpconnect");
           }
         }
       }
@@ -394,7 +390,7 @@ pvc_process_p_read(TSCont contp, TSEvent event, pvc_state * my_state)
 
       ndone = TSVIONDoneGet(my_state->p_read_vio);
       if (ndone == TS_ERROR) {
-        LOG_ERROR("TSVIODoneGet");
+        TSLogError("TSVIODoneGet");
       }
 
       my_state->p_read_vio = NULL;
@@ -420,7 +416,7 @@ pvc_process_n_write(TSCont contp, TSEvent event, pvc_state * my_state)
 {
   int size;
 
-  //TSDebug(DEBUG_TAG, "plugin called: pvc_process_n_write with event %d", event);
+  //TSLogDebug("plugin called: pvc_process_n_write with event %d", event);
 
   switch (event) {
   case TS_EVENT_VCONN_WRITE_READY:
@@ -467,7 +463,7 @@ pvc_process_n_write(TSCont contp, TSEvent event, pvc_state * my_state)
 static void
 pvc_process_n_read(TSCont contp, TSEvent event, pvc_state * my_state)
 {
-  //TSDebug(DEBUG_TAG, "plugin called: pvc_process_n_read with event %d", event);
+  //TSLogDebug("plugin called: pvc_process_n_read with event %d", event);
 
   switch (event) {
   case TS_EVENT_VCONN_READ_READY:
@@ -484,7 +480,7 @@ pvc_process_n_read(TSCont contp, TSEvent event, pvc_state * my_state)
 
       ndone = TSVIONDoneGet(my_state->n_read_vio);
       if (ndone == TS_ERROR) {
-        LOG_ERROR("TSVIODoneGet");
+        TSLogError("TSVIODoneGet");
       }
 
       my_state->n_read_vio = NULL;
@@ -493,7 +489,7 @@ pvc_process_n_read(TSCont contp, TSEvent event, pvc_state * my_state)
 
       todo = TSVIONTodoGet(my_state->p_write_vio);
       if (todo == TS_ERROR) {
-        LOG_ERROR("TSVIOTodoGet");
+        TSLogError("TSVIOTodoGet");
         /* Error so set it to 0 to cleanup */
         todo = 0;
       }
@@ -517,7 +513,7 @@ pvc_process_n_read(TSCont contp, TSEvent event, pvc_state * my_state)
 static void
 pvc_process_p_write(TSCont contp, TSEvent event, pvc_state * my_state)
 {
-  //TSDebug(DEBUG_TAG, "plugin called: pvc_process_p_write with event %d", event);
+  //TSLogDebug("plugin called: pvc_process_p_write with event %d", event);
 
   switch (event) {
   case TS_EVENT_VCONN_WRITE_READY:
@@ -571,7 +567,7 @@ pvc_plugin(TSCont contp, TSEvent event, void *edata)
     char *buf = TSAIOBufGet(callback);
     if (buf != my_state->chunk_buffer) {
       // this TS_AIO_EVENT_DONE event is from TSAIOWrite()
-      TSDebug(DEBUG_TAG, "aio write size: %d", size);
+      TSLogDebug("aio write size: %d", size);
       my_state->size_written += size;
       if (buf != NULL) {
         TSfree(buf);
@@ -579,12 +575,12 @@ pvc_plugin(TSCont contp, TSEvent event, void *edata)
       if (my_state->size_written >= my_state->req_size) {
         // the entire post data had been written to disk  already, make the connection now
         if (call_httpconnect(contp, my_state) == TS_ERROR) {
-          TSDebug(DEBUG_TAG, "call_httpconnect");
+          TSLogDebug("call_httpconnect");
         }
       }
     } else {
       // this TS_AIO_EVENT_DONE event is from TSAIORead()
-      TSDebug(DEBUG_TAG, "aio read size: %d", size);
+      TSLogDebug("aio read size: %d", size);
       TSIOBufferWrite(my_state->req_buffer, my_state->chunk_buffer, size);
       my_state->size_read += size;
       if (my_state->size_read >= my_state->req_size && my_state->fd != -1) {
@@ -598,7 +594,7 @@ pvc_plugin(TSCont contp, TSEvent event, void *edata)
     TSMutexUnlock(my_state->disk_io_mutex);
 
   } else {
-    TSDebug(DEBUG_TAG, "event: %d", event);
+    TSLogDebug("event: %d", event);
     TSReleaseAssert(!"Unexpected Event");
   }
 
@@ -644,7 +640,7 @@ convert_url_func(TSMBuffer req_bufp, TSMLoc req_loc)
     char pathTmp[len + 1];
     memset(pathTmp, 0, sizeof pathTmp);
     memcpy(pathTmp, str, len);
-    TSDebug(DEBUG_TAG, "convert_url_func working on path: %s", pathTmp);
+    TSLogDebug("convert_url_func working on path: %s", pathTmp);
     colon = strstr(str, ":");
     if (colon != NULL && colon < slash) {
       char *port_str = (char *) TSmalloc(sizeof(char) * (slash - colon));
@@ -702,7 +698,7 @@ attach_pvc_plugin(TSCont contp, TSEvent event, void *edata)
     }
 
     if (!TSHttpTxnClientReqGet(txnp, &req_bufp, &req_loc)) {
-      LOG_ERROR("Error while retrieving client request header");
+      TSLogError("Error while retrieving client request header");
       break;
     }
 
@@ -721,12 +717,12 @@ attach_pvc_plugin(TSCont contp, TSEvent event, void *edata)
 
     //TSHandleStringRelease(req_bufp, req_loc, method);
 
-    TSDebug(DEBUG_TAG, "Got POST req");
+    TSLogDebug("Got POST req");
     if (uconfig->url_list_file != NULL) {
-      TSDebug(DEBUG_TAG, "url_list_file != NULL");
+      TSLogDebug("url_list_file != NULL");
       // check against URL list
       if (TSHttpHdrUrlGet(req_bufp, req_loc, &url_loc) == TS_ERROR) {
-        LOG_ERROR("Couldn't get the url");
+        TSLogError("Couldn't get the URL");
       }
       str = TSUrlHostGet(req_bufp, url_loc, &str_len);
       if (NOT_VALID_PTR(str) || str_len <= 0) {
@@ -735,7 +731,7 @@ attach_pvc_plugin(TSCont contp, TSEvent event, void *edata)
         if (NOT_VALID_PTR(field_loc)) {
           //if (VALID_PTR(str))
           //  TSHandleStringRelease(req_bufp, url_loc, str);
-          LOG_ERROR("Host field not found.");
+          TSLogError("Host field not found.");
           TSHandleMLocRelease(req_bufp, req_loc, url_loc);
           TSHandleMLocRelease(req_bufp, TS_NULL_MLOC, req_loc);
           break;
@@ -753,7 +749,7 @@ attach_pvc_plugin(TSCont contp, TSEvent event, void *edata)
         char replacement_host_str[str_len + 1];
         memset(replacement_host_str, 0, sizeof replacement_host_str);
         memcpy(replacement_host_str, str, str_len);
-        TSDebug(DEBUG_TAG, "Adding host to request url: %s", replacement_host_str);
+        TSLogDebug("Adding host to request url: %s", replacement_host_str);
 
         TSUrlHostSet(req_bufp, url_loc, str, str_len);
 
@@ -769,10 +765,10 @@ attach_pvc_plugin(TSCont contp, TSEvent event, void *edata)
         char urlStr[url_len + 1];
         memset(urlStr, 0, sizeof urlStr);
         memcpy(urlStr, url, url_len);
-        TSDebug(DEBUG_TAG, "Request url: %s", urlStr);
+        TSLogDebug("Request url: %s", urlStr);
 
         for (i = 0; i < uconfig->url_num; i++) {
-          TSDebug(DEBUG_TAG, "uconfig url: %s", uconfig->urls[i]);
+          TSLogDebug("uconfig url: %s", uconfig->urls[i]);
           if (strncmp(url, uconfig->urls[i], url_len) == 0) {
             break;
           }
@@ -783,21 +779,21 @@ attach_pvc_plugin(TSCont contp, TSEvent event, void *edata)
       TSHandleMLocRelease(req_bufp, req_loc, url_loc);
 
       if (uconfig->url_num > 0 && i == uconfig->url_num) {
-        TSDebug(DEBUG_TAG, "breaking: url_num > 0 and i== url_num, URL match not found");
+        TSLogDebug("breaking: url_num > 0 and i== url_num, URL match not found");
         TSHandleMLocRelease(req_bufp, TS_NULL_MLOC, req_loc);
         break;
       }
     }
 
     if (uconfig->convert_url) {
-      TSDebug(DEBUG_TAG, "doing convert url");
+      TSLogDebug("doing convert url");
       convert_url_func(req_bufp, req_loc);
     }
 
     if ((field_loc = TSMimeHdrFieldFind(req_bufp, req_loc, TS_MIME_FIELD_CONTENT_LENGTH, TS_MIME_LEN_CONTENT_LENGTH)) ||
         field_loc == NULL) {
       TSHandleMLocRelease(req_bufp, TS_NULL_MLOC, req_loc);
-      LOG_ERROR("TSMimeHdrFieldRetrieve");
+      TSLogError("TSMimeHdrFieldRetrieve");
       break;
     }
 
@@ -805,7 +801,7 @@ attach_pvc_plugin(TSCont contp, TSEvent event, void *edata)
         /*{
       TSHandleMLocRelease(req_bufp, req_loc, field_loc);
       TSHandleMLocRelease(req_bufp, TS_NULL_MLOC, req_loc);
-      LOG_ERROR("TSMimeFieldValueGet");
+      TSLogError("TSMimeFieldValueGet");
     } else
         */
     //  content_length = value;
@@ -814,7 +810,7 @@ attach_pvc_plugin(TSCont contp, TSEvent event, void *edata)
     if (NOT_VALID_PTR(mutex)) {
       TSHandleMLocRelease(req_bufp, req_loc, field_loc);
       TSHandleMLocRelease(req_bufp, TS_NULL_MLOC, req_loc);
-      LOG_ERROR("TSMutexCreate");
+      TSLogError("TSMutexCreate");
       break;
     }
 
@@ -822,7 +818,7 @@ attach_pvc_plugin(TSCont contp, TSEvent event, void *edata)
     if (NOT_VALID_PTR(new_cont)) {
       TSHandleMLocRelease(req_bufp, req_loc, field_loc);
       TSHandleMLocRelease(req_bufp, TS_NULL_MLOC, req_loc);
-      LOG_ERROR("TSContCreate");
+      TSLogError("TSContCreate");
       break;
     }
 
@@ -860,7 +856,7 @@ attach_pvc_plugin(TSCont contp, TSEvent event, void *edata)
 
     my_state->disk_io_mutex = TSMutexCreate();
     if (NOT_VALID_PTR(my_state->disk_io_mutex)) {
-      LOG_ERROR("TSMutexCreate");
+      TSLogError("TSMutexCreate");
     }
 
     my_state->req_hdr_buffer = TSIOBufferCreate();
@@ -874,8 +870,7 @@ attach_pvc_plugin(TSCont contp, TSEvent event, void *edata)
     TSStatIntIncrement(upload_vc_count, 1);
 
     if (!uconfig->use_disk_buffer && my_state->req_size > uconfig->mem_buffer_size) {
-      TSDebug(DEBUG_TAG,
-              "The request size %lu is larger than memory buffer size %lu, bypass upload proxy feature for this request.",
+      TSLogDebug("The request size %lu is larger than memory buffer size %lu, bypass upload proxy feature for this request.",
               my_state->req_size, uconfig->mem_buffer_size);
 
       pvc_cleanup(new_cont, my_state);
@@ -904,18 +899,18 @@ attach_pvc_plugin(TSCont contp, TSEvent event, void *edata)
        */
 
       my_state->filename = tempnam(path, NULL);
-      TSDebug(DEBUG_TAG, "temp filename: %s", my_state->filename);
+      TSLogDebug("temp filename: %s", my_state->filename);
 
       my_state->fd = open(my_state->filename, O_RDWR | O_NONBLOCK | O_TRUNC | O_CREAT);
       if (my_state->fd < 0) {
-        LOG_ERROR("open");
+        TSLogError("open");
         uconfig->use_disk_buffer = 0;
         my_state->fd = -1;
       }
     }
 
 
-    TSDebug(DEBUG_TAG, "calling TSHttpTxnIntercept() ...");
+    TSLogDebug("calling TSHttpTxnIntercept() ...");
     TSHttpTxnIntercept(new_cont, txnp);
 
     break;
@@ -939,26 +934,26 @@ create_directory()
   struct passwd *pwd;
 
   if (getcwd(cwd, 4096) == NULL) {
-    TSError("getcwd fails");
+    TSLogError("getcwd fails");
     return 0;
   }
 
   if ((pwd = getpwnam("nobody")) == NULL) {
-    TSError("can't get passwd entry for \"nobody\"");
+    TSLogError("can't get passwd entry for \"nobody\"");
     goto error_out;
   }
 
   if (chdir(uconfig->base_dir) < 0) {
     if (mkdir(uconfig->base_dir, S_IRWXU | S_IRWXG | S_IRWXO) < 0) {
-      TSError("Unable to enter or create %s", uconfig->base_dir);
+      TSLogError("Unable to enter or create %s", uconfig->base_dir);
       goto error_out;
     }
     if (chown(uconfig->base_dir, pwd->pw_uid, pwd->pw_gid) < 0) {
-      TSError("Unable to chown %s", uconfig->base_dir);
+      TSLogError("Unable to chown %s", uconfig->base_dir);
       goto error_out;
     }
     if (chdir(uconfig->base_dir) < 0) {
-      TSError("Unable enter %s", uconfig->base_dir);
+      TSLogError("Unable enter %s", uconfig->base_dir);
       goto error_out;
     }
   }
@@ -966,15 +961,15 @@ create_directory()
     snprintf(str, 10, "%02X", i);
     if (chdir(str) < 0) {
       if (mkdir(str, S_IRWXU | S_IRWXG | S_IRWXO) < 0) {
-        TSError("Unable to enter or create %s/%s", uconfig->base_dir, str);
+        TSLogError("Unable to enter or create %s/%s", uconfig->base_dir, str);
         goto error_out;
       }
       if (chown(str, pwd->pw_uid, pwd->pw_gid) < 0) {
-        TSError("Unable to chown %s", str);
+        TSLogError("Unable to chown %s", str);
         goto error_out;
       }
       if (chdir(str) < 0) {
-        TSError("Unable to enter %s/%s", uconfig->base_dir, str);
+        TSLogError("Unable to enter %s/%s", uconfig->base_dir, str);
         goto error_out;
       }
     }
@@ -1012,7 +1007,7 @@ load_urls(char *filename)
   for (i = 0; i < 2; i++) {
     if ((file = TSfopen(filename, "r")) == NULL) {
       TSfree(url_buf);
-      TSError("Fail to open %s", filename);
+      TSLogError("Fail to open %s", filename);
       return;
     }
     if (i == 0) {               //first round
@@ -1062,8 +1057,7 @@ parse_config_line(char *line, const struct config_val_ul *cv)
               int iv = strtol(tok, &end, 10);
               if (end && *end == '\0') {
                 *((int *) cv->val) = iv;
-                TSError("Parsed int config value %s : %d", cv->str, iv);
-                TSDebug(DEBUG_TAG, "Parsed int config value %s : %d", cv->str, iv);
+                TSLogError("Parsed int config value %s : %d", cv->str, iv);
               }
               break;
             }
@@ -1072,8 +1066,7 @@ parse_config_line(char *line, const struct config_val_ul *cv)
               unsigned int uiv = strtoul(tok, &end, 10);
               if (end && *end == '\0') {
                 *((unsigned int *) cv->val) = uiv;
-                TSError("Parsed uint config value %s : %u", cv->str, uiv);
-                TSDebug(DEBUG_TAG, "Parsed uint config value %s : %u", cv->str, uiv);
+                TSLogError("Parsed uint config value %s : %u", cv->str, uiv);
               }
               break;
             }
@@ -1082,8 +1075,7 @@ parse_config_line(char *line, const struct config_val_ul *cv)
               long lv = strtol(tok, &end, 10);
               if (end && *end == '\0') {
                 *((long *) cv->val) = lv;
-                TSError("Parsed long config value %s : %ld", cv->str, lv);
-                TSDebug(DEBUG_TAG, "Parsed long config value %s : %ld", cv->str, lv);
+                TSLogError("Parsed long config value %s : %ld", cv->str, lv);
               }
               break;
             }
@@ -1092,8 +1084,7 @@ parse_config_line(char *line, const struct config_val_ul *cv)
               unsigned long ulv = strtoul(tok, &end, 10);
               if (end && *end == '\0') {
                 *((unsigned long *) cv->val) = ulv;
-                TSError("Parsed ulong config value %s : %lu", cv->str, ulv);
-                TSDebug(DEBUG_TAG, "Parsed ulong config value %s : %lu", cv->str, ulv);
+                TSLogError("Parsed ulong config value %s : %lu", cv->str, ulv);
               }
               break;
             }
@@ -1102,8 +1093,7 @@ parse_config_line(char *line, const struct config_val_ul *cv)
               if (len > 0) {
                 *((char **) cv->val) = (char *) TSmalloc(len + 1);
                 strcpy(*((char **) cv->val), tok);
-                TSError("Parsed string config value %s : %s", cv->str, tok);
-                TSDebug(DEBUG_TAG, "Parsed string config value %s : %s", cv->str, tok);
+                TSLogError("Parsed string config value %s : %s", cv->str, tok);
               }
               break;
             }
@@ -1114,8 +1104,7 @@ parse_config_line(char *line, const struct config_val_ul *cv)
                   *((bool *) cv->val) = true;
                 else
                   *((bool *) cv->val) = false;
-                TSError("Parsed bool config value %s : %d", cv->str, *((bool *) cv->val));
-                TSDebug(DEBUG_TAG, "Parsed bool config value %s : %d", cv->str, *((bool *) cv->val));
+                TSLogError("Parsed bool config value %s : %d", cv->str, *((bool *) cv->val));
               }
               break;
             }
@@ -1132,7 +1121,7 @@ parse_config_line(char *line, const struct config_val_ul *cv)
 bool
 read_upload_config(const char *file_name)
 {
-  TSDebug(DEBUG_TAG, "read_upload_config: %s", file_name);
+  TSLogDebug("config file: %s", file_name);
   uconfig = (upload_config *) TSmalloc(sizeof(upload_config));
   uconfig->use_disk_buffer = true;
   uconfig->convert_url = false;
@@ -1162,7 +1151,7 @@ read_upload_config(const char *file_name)
   conf_file = TSfopen(file_name, "r");
 
   if (conf_file != NULL) {
-    TSDebug(DEBUG_TAG, "opened config: %s", file_name);
+    TSLogDebug("opened config: %s", file_name);
     char buf[1024];
     while (TSfgets(conf_file, buf, sizeof(buf) - 1) != NULL) {
       if (buf[0] != '#') {
@@ -1171,7 +1160,7 @@ read_upload_config(const char *file_name)
     }
     TSfclose(conf_file);
   } else {
-    TSError("Failed to open upload config file %s", file_name);
+    TSLogError("Failed to open upload config file %s", file_name);
     // if fail to open config file, use the default config
   }
 
@@ -1213,21 +1202,21 @@ TSPluginInit(int argc, const char *argv[])
 
   if (!read_upload_config(conf_filename) || !uconfig) {
     if (argc > 1) {
-      TSError("Failed to read upload config %s\n", argv[1]);
+      TSLogError("Failed to read upload config %s\n", argv[1]);
     } else {
-      TSError("No config file specified. Specify conf file in plugin.conf: "
+      TSLogError("No config file specified. Specify conf file in plugin.conf: "
               "'buffer_upload.so /path/to/upload.conf'\n");
     }
   }
   // set the num of threads for disk AIO
   if (TSAIOThreadNumSet(uconfig->thread_num) == TS_ERROR) {
-    TSError("Failed to set thread number.");
+    TSLogError("Failed to set thread number.");
   }
 
-  TSDebug(DEBUG_TAG, "uconfig->url_list_file: %s", uconfig->url_list_file);
+  TSLogDebug("uconfig->url_list_file: %s", uconfig->url_list_file);
   if (uconfig->url_list_file) {
     load_urls(uconfig->url_list_file);
-    TSDebug(DEBUG_TAG, "loaded uconfig->url_list_file, num urls: %d", uconfig->url_num);
+    TSLogDebug("loaded uconfig->url_list_file, num urls: %d", uconfig->url_num);
   }
 
   info.plugin_name = const_cast<char*>("buffer_upload");
@@ -1235,12 +1224,12 @@ TSPluginInit(int argc, const char *argv[])
   info.support_email = const_cast<char*>("");
 
   if (uconfig->use_disk_buffer && !create_directory()) {
-    TSError("Directory creation failed.");
+    TSLogError("Directory creation failed.");
     uconfig->use_disk_buffer = 0;
   }
 
   if (TSPluginRegister(TS_SDK_VERSION_2_0, &info) != TS_SUCCESS) {
-    TSError("Plugin registration failed.");
+    TSLogError("Plugin registration failed.");
   }
 
   /* create the statistic variables */

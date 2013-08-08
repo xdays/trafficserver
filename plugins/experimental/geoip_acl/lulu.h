@@ -47,7 +47,8 @@
 #endif
 
 // Used for Debug etc.
-static const char* PLUGIN_NAME = "geoip_acl";
+#define PLUGIN_NAME "geoip_acl"
+#include <ts/debug.h>
 
 #endif // __LULU_H__
 

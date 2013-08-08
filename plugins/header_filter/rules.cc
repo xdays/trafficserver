@@ -45,14 +45,14 @@ inline void
 add_header(TSMBuffer& reqp, TSMLoc& hdr_loc, const char* hdr, int hdr_len, const char* val, int val_len)
 {
   if (val_len <= 0) {
-    TSDebug(PLUGIN_NAME, "\tWould set header %s to an empty value, skipping", hdr);
+    TSLogDebug("\tWould set header %s to an empty value, skipping", hdr);
   } else {
     TSMLoc new_field;
 
     if (TS_SUCCESS == TSMimeHdrFieldCreateNamed(reqp, hdr_loc, hdr, hdr_len, &new_field)) {
       if (TS_SUCCESS == TSMimeHdrFieldValueStringInsert(reqp, hdr_loc, new_field, -1,  val, val_len))
         if (TS_SUCCESS == TSMimeHdrFieldAppend(reqp, hdr_loc, new_field))
-          TSDebug(PLUGIN_NAME, "\tAdded header %s: %s", hdr, val);
+          TSLogDebug("\tAdded header %s: %s", hdr, val);
       TSHandleMLocRelease(reqp, hdr_loc, new_field);
     }
   }
@@ -130,7 +130,7 @@ RulesEntry::execute(TSMBuffer& reqp, TSMLoc& hdr_loc) const
             nuke = false;
             first_set = false;
             if (TS_SUCCESS == TSMimeHdrFieldValueStringSet(reqp, hdr_loc, field, -1, _qualifier, _q_len))
-              TSDebug(PLUGIN_NAME, "\tSet header:  %s: %s", _header, _qualifier);
+              TSLogDebug("\tSet header:  %s: %s", _header, _qualifier);
           } else {
             // Nuke all other "duplicates" of this header
             nuke = true;
@@ -145,7 +145,7 @@ RulesEntry::execute(TSMBuffer& reqp, TSMLoc& hdr_loc) const
           nuke = !nuke;
         if (nuke) {
           if (TS_SUCCESS == TSMimeHdrFieldDestroy(reqp, hdr_loc, field))
-            TSDebug(PLUGIN_NAME, "\tDeleting header %.*s", static_cast<int>(_h_len), _header);
+            TSLogDebug("\tDeleting header %.*s", static_cast<int>(_h_len), _header);
         }
         TSHandleMLocRelease(reqp, hdr_loc, field);
         field = tmp;
@@ -158,7 +158,7 @@ RulesEntry::execute(TSMBuffer& reqp, TSMLoc& hdr_loc) const
 // Rules class implementations
 Rules::~Rules()
 {
-  TSDebug(PLUGIN_NAME_DBG, "Calling DTOR for Rules");
+  TSLogDebug("Calling DTOR for Rules");
 
   for (int i = 0; i < TS_HTTP_LAST_HOOK; ++i)
     delete _entries[i];
@@ -190,10 +190,10 @@ Rules::parse_file(const char* filename)
   // TODO: Should we support a 'default' prefix here for the rules?
   f.open(filename, std::ios::in);
   if (!f.is_open()) {
-    TSError("unable to open %s", filename);
+    TSLogError("unable to open %s", filename);
     return false;
   }
-  TSDebug(PLUGIN_NAME, "Parsing config file %s", filename);
+  TSLogDebug("Parsing config file %s", filename);
   while (!f.eof()) {
     bool inverse = false;
     int options = 0;
@@ -277,18 +277,18 @@ Rules::parse_file(const char* filename)
                 qualifier = line.substr(pos1+1, pos2-pos1-1);
                 if (line[pos2+1] == 'i')
                   options |= PCRE_CASELESS;
-                TSDebug(PLUGIN_NAME, "Adding '%s' to hook %d, type is %d, qualifier is %c %s (%c)",
+                TSLogDebug("Adding '%s' to hook %d, type is %d, qualifier is %c %s (%c)",
                         word.c_str(), hook, type, inverse ? '!' : ' ', qualifier.c_str(), options & PCRE_CASELESS ? 'i' : ' ');
                 add_entry(hook, word, qualifier, type, inverse, options);
               } else {
-                TSError("Missing trailing delimiter in qualifier");
+                TSLogError("Missing trailing delimiter in qualifier");
               }
             } else {
-              TSError("Missing leading delimiter in qualifier");
+              TSLogError("Missing leading delimiter in qualifier");
             }
           } else {
             // No qualifier, so we'll nuke this header for all values
-            TSDebug(PLUGIN_NAME, "Adding %s to hook %d (unqualified)", word.c_str(), hook);
+            TSLogDebug("Adding %s to hook %d (unqualified)", word.c_str(), hook);
             add_entry(hook, word);
           }
         }
@@ -308,7 +308,7 @@ Rules::execute(TSMBuffer& reqp, TSMLoc& hdr_loc, const TSHttpHookID hook) const
   if (_entries[hook]) {
     RulesEntry* n = _entries[hook];
 
-    TSDebug(PLUGIN_NAME, "Executing rules(s) for hook %d", hook);
+    TSLogDebug("Executing rules(s) for hook %d", hook);
     do {
       n->execute(reqp, hdr_loc);
     } while (NULL != (n = n->next()));
