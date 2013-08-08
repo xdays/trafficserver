@@ -47,8 +47,8 @@
 #endif
 
 // Used for Debug etc.
-static const char* PLUGIN_NAME = "header_filter";
-static const char* PLUGIN_NAME_DBG = "header_filter_dbg";
+#define PLUGIN_NAME "header_filter"
+#include <ts/debug.h>
 
 // From google styleguide: http://google-styleguide.googlecode.com/svn/trunk/cppguide.xml
 #define DISALLOW_COPY_AND_ASSIGN(TypeName)      \
