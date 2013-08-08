@@ -246,7 +246,7 @@ spdy_stream_io(TSCont contp, TSEvent ev, void * edata)
         return TS_EVENT_NONE;
 
     default:
-        debug_plugin("unexpected stream event %s", cstringof(ev));
+        TSLogDebug("unexpected stream event %s", cstringof(ev));
     }
 
     return TS_EVENT_NONE;
