@@ -24,8 +24,8 @@
 #include <string>
 #include <boost/algorithm/string.hpp>
 
-#include <ts/ts.h>
-#include <ts/remap.h>
+#include "ts/ts.h"
+#include "ts/remap.h"
 
 #include "parser.h"
 #include "ruleset.h"

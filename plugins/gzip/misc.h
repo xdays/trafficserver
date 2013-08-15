@@ -25,7 +25,7 @@
 #define _GZIP_MISC_H_
 
 #include <zlib.h>
-#include <ts/ts.h>
+#include "ts/ts.h"
 #include <stdlib.h>             //exit()
 #include <stdio.h>
 

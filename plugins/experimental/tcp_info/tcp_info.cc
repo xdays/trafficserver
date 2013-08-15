@@ -26,7 +26,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <ts/ts.h>
+#include "ts/ts.h"
 #include <unistd.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -40,7 +40,7 @@
 #include <arpa/inet.h>
 
 #define PLUGIN_NAME "tcp_info"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 struct Config {
   int sample;

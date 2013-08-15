@@ -23,7 +23,7 @@
 #define __VALUE_H__ 1
 
 #include <string>
-#include <ts/ts.h>
+#include "ts/ts.h"
 
 #include "resources.h"
 #include "statement.h"

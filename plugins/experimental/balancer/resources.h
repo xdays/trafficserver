@@ -29,12 +29,12 @@
 #define __RESOURCES_H__ 1
 
 
-#include <ts/remap.h>
-#include <ts/ts.h>
+#include "ts/remap.h"
+#include "ts/ts.h"
 
 
 #define PLUGIN_NAME "balancer"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 
 ///////////////////////////////////////////////////////////////////////////////

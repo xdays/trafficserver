@@ -30,12 +30,12 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <ts/ts.h>
+#include "ts/ts.h"
 #include <string.h>
 #include <stdlib.h>
 
 #define PLUGIN_NAME "custom_redirect"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 static char* redirect_url_header = NULL;
 static int redirect_url_header_len = 0;

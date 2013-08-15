@@ -22,7 +22,7 @@
 #include <string>
 
 #define PLUGIN_NAME "spdy"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 template <typename T> std::string stringof(const T&);
 #define cstringof(x) stringof(x).c_str()

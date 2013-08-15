@@ -19,7 +19,7 @@
 // operator.cc: Implementation of the operator base class
 //
 //
-#include <ts/ts.h>
+#include "ts/ts.h"
 #include "operator.h"
 
 const OperModifiers

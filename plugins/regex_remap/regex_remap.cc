@@ -48,7 +48,7 @@
 #include "ink_time.h"
 
 #define PLUGIN_NAME "regex_remap"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 // Constants
 static const int OVECCOUNT = 30; // We support $0 - $9 x2 ints, and this needs to be 1.5x that

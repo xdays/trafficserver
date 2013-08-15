@@ -16,12 +16,12 @@
  * limitations under the License.
  */
 
-#include <ts/ts.h>
+#include "ts/ts.h"
 #include <netinet/in.h>
 #include <memory>
 
 #define PLUGIN_NAME "authproxy"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 template <typename T>
 T * AuthNew() {

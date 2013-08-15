@@ -36,7 +36,7 @@
 #include <getopt.h>
 #include <arpa/inet.h>
 #include <sys/param.h>
-#include <ts/remap.h>
+#include "ts/remap.h"
 #include <ink_config.h>
 
 using std::strlen;

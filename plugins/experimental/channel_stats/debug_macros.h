@@ -22,7 +22,7 @@
 #include "ink_defs.h"
 
 #define TAG PLUGIN_NAME
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 #define HRTIME_FOREVER  (10*HRTIME_DECADE)
 #define HRTIME_DECADE   (10*HRTIME_YEAR)

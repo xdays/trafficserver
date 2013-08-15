@@ -20,7 +20,7 @@
 //
 //
 #include <unistd.h>
-#include <ts/ts.h>
+#include "ts/ts.h"
 
 #include "conditions.h"
 #include "lulu.h"

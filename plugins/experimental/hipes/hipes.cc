@@ -24,8 +24,8 @@
 #include <stdlib.h>
 #include <string>
 
-#include <ts/remap.h>
-#include <ts/ts.h>
+#include "ts/remap.h"
+#include "ts/ts.h"
 
 static const char* PLUGIN_NAME = "hipes";
 static const char* HIPES_SERVER_NAME = "hipes.example.com";

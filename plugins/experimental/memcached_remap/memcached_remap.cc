@@ -16,8 +16,8 @@
   limitations under the License.
 */
 
-#include <ts/ts.h>
-#include <ts/remap.h>
+#include "ts/ts.h"
+#include "ts/remap.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>

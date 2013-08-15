@@ -31,8 +31,8 @@
 
 #include <string>
 
-#include <ts/remap.h>
-#include <ts/ts.h>
+#include "ts/remap.h"
+#include "ts/ts.h"
 
 #include "resources.h"
 

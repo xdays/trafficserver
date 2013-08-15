@@ -18,7 +18,7 @@
 
 // protocol.cc - Low level routines to write SPDY frames.
 
-#include <ts/ts.h>
+#include "ts/ts.h"
 #include <spdy/spdy.h>
 #include <base/logging.h>
 #include "io.h"

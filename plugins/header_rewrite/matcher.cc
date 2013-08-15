@@ -20,6 +20,6 @@
 //
 //
 #include <string>
-#include <ts/ts.h>
+#include "ts/ts.h"
 
 #include "matcher.h"

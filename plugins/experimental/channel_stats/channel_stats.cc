@@ -32,10 +32,10 @@
 # include <netinet/in.h>
 #endif
 
-#include <ts/ts.h>
+#include "ts/ts.h"
 #if (TS_VERSION_NUMBER < 3003001)
 // get TSHttpTxnStartTimeGet
-#include <ts/experimental.h>
+#include "ts/experimental.h"
 #endif
 
 #define PLUGIN_NAME     "channel_stats"

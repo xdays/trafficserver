@@ -23,7 +23,7 @@
 #define __MATCHER_H__ 1
 
 #include <string>
-#include <ts/ts.h>
+#include "ts/ts.h"
 #include "regex_helper.h"
 #include <iostream> // For debugging
 

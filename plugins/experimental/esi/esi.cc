@@ -71,7 +71,7 @@ static HandlerManager *gHandlerManager = NULL;
 #define HANDLER_MGR_DEBUG_TAG "plugin_esi_handler_mgr"
 #define EXPR_DEBUG_TAG VARS_DEBUG_TAG
 
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 #define MIME_FIELD_XESI "X-Esi"
 #define MIME_FIELD_XESI_LEN 5

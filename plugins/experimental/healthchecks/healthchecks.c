@@ -38,7 +38,7 @@ limitations under the License.
 #include "ink_defs.h"
 
 #define PLUGIN_NAME "healthchecks"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 static const char SEPARATORS[] = " \t\n";
 

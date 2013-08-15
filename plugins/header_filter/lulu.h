@@ -48,7 +48,7 @@
 
 // Used for Debug etc.
 #define PLUGIN_NAME "header_filter"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 // From google styleguide: http://google-styleguide.googlecode.com/svn/trunk/cppguide.xml
 #define DISALLOW_COPY_AND_ASSIGN(TypeName)      \

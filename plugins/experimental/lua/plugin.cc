@@ -16,7 +16,7 @@
   limitations under the License.
 */
 
-#include <ts/ts.h>
+#include "ts/ts.h"
 #include "lutil.h"
 #include "hook.h"
 #include "state.h"

@@ -16,8 +16,8 @@
   limitations under the License.
 */
 
-#include <ts/ts.h>
-#include <ts/remap.h>
+#include "ts/ts.h"
+#include "ts/remap.h"
 #include <string.h>
 #include "lapi.h"
 #include "lutil.h"

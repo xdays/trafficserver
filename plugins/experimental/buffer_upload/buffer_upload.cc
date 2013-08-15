@@ -31,7 +31,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
-#include <ts/ts.h>
+#include "ts/ts.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -45,7 +45,7 @@
 #define false 0
 
 #define PLUGIN_NAME "buffer_upload"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 /**************************************************
    Log macros for error code return verification 

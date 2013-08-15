@@ -24,7 +24,7 @@
 #include <string>
 #include <string.h>
 #include <zlib.h>
-#include <ts/ts.h>
+#include "ts/ts.h"
 #include "debug_macros.h"
 #include "misc.h"
 #include "configuration.h"

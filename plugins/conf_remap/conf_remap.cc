@@ -26,7 +26,7 @@
 #include <stdlib.h>
 
 #define PLUGIN_NAME "conf_remap"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 // This makes the plugin depend on the version of traffic server installed, but that's
 // OK, since this plugin is distributed only with the "core" (it's a core piece).

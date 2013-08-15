@@ -21,7 +21,7 @@
 // Implemenation details for the rules class.
 //
 #include <fstream>
-#include <ts/ts.h>
+#include "ts/ts.h"
 
 #include "rules.h"
 

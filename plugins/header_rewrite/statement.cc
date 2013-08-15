@@ -20,7 +20,7 @@
 //
 //
 
-#include <ts/ts.h>
+#include "ts/ts.h"
 
 #include "statement.h"
 

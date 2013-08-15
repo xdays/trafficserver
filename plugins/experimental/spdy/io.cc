@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-#include <ts/ts.h>
+#include "ts/ts.h"
 #include <spdy/spdy.h>
 #include "io.h"
 #include <memory>

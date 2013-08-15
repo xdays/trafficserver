@@ -39,7 +39,7 @@
 #include "ink_defs.h"
 
 #define PLUGIN_NAME "metalink"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 typedef struct {
   TSVConn connp;

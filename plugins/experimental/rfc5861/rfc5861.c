@@ -37,7 +37,7 @@
 #include "ts/experimental.h"
 
 #define PLUGIN_NAME "rfc5861"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 //#define ENABLE_SAVE_ORIGINAL_REQUEST
 

@@ -30,10 +30,10 @@
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <ts/ts.h>
+#include "ts/ts.h"
 
 #define PLUGIN_NAME "libloader"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 typedef struct {
     void *handle;

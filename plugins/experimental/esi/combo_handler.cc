@@ -39,7 +39,7 @@ using namespace std;
 using namespace EsiLib;
 
 #define PLUGIN_NAME "combo_handler"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 #define MAX_FILE_COUNT 30
 #define MAX_QUERY_LENGTH 3000

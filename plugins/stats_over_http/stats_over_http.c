@@ -28,7 +28,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <limits.h>
-#include <ts/ts.h>
+#include "ts/ts.h"
 #include <string.h>
 
 #include <inttypes.h>
@@ -40,7 +40,7 @@ static const char* url_path = "_stats";
 static int url_path_len;
 
 #define PLUGIN_NAME "stats_ver_http"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 typedef struct stats_state_t
 {

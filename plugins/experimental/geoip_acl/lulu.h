@@ -48,7 +48,7 @@
 
 // Used for Debug etc.
 #define PLUGIN_NAME "geoip_acl"
-#include <ts/debug.h>
+#include "ts/debug.h"
 
 #endif // __LULU_H__
 
