@@ -26,7 +26,9 @@ Configuration File Reference
   :maxdepth: 2
 
   cache.config.en
+  cache.config.zh
   congestion.config.en
+  congestion.config.zh
   hosting.config.en
   icp.config.en
   ip_allow.config.en
