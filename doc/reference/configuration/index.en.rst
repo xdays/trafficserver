@@ -30,8 +30,11 @@ Configuration File Reference
   congestion.config.en
   congestion.config.zh
   hosting.config.en
+  hosting.config.zh
   icp.config.en
+  icp.config.zh
   ip_allow.config.en
+  ip_allow.config.zh
   log_hosts.config.en
   logs_xml.config.en
   parent.config.en
