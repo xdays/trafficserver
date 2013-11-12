@@ -1,7 +1,7 @@
 
 .. _configuration-file-reference:
 
-Configuration File Reference
+Configuration File Reference（中文）
 ****************************
 
 .. Licensed to the Apache Software Foundation (ASF) under one
@@ -37,6 +37,7 @@ Configuration File Reference
   ip_allow.config.zh
   log_hosts.config.en
   logs_xml.config.en
+  logs_xml.config.zh
   parent.config.en
   plugin.config.en
   records.config.en
