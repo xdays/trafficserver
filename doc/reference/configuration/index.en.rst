@@ -36,6 +36,7 @@ Configuration File Reference（中文）
   ip_allow.config.en
   ip_allow.config.zh
   log_hosts.config.en
+  log_hosts.config.zh
   logs_xml.config.en
   logs_xml.config.zh
   parent.config.en
