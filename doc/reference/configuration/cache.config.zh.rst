@@ -57,7 +57,7 @@ Server recognizes three space-delimited tags::
 
    primary_destination=value secondary_specifier=value action=value
 
- :file:`cache.config` 文件的每一行包含一条缓存规则，Traffic Server识别的格式为
+:file:`cache.config` 文件的每一行包含一条缓存规则，Traffic Server识别的格式为
 空格分割的三个标签::
 
    primary_destination=value secondary_specifier=value action=value
