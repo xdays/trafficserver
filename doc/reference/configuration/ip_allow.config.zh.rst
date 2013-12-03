@@ -29,7 +29,7 @@ directory and run the :option:`traffic_line -x` command to apply changes. When
 you apply the changes to a node in a cluster, Traffic Server
 automatically applies the changes to all other nodes in the cluster.
 
- :file: `ip_allow.config` 文件用于对客户端做访问控制。你可以指定允许请求的
+:file: `ip_allow.config` 文件用于对客户端做访问控制。你可以指定允许请求的
 客户端IP地址范围。当你修改了 :file:`ip_allow.config` 之后，切换到
 Traffic Server的bin目录，然后 执行 :option:`traffic_line -x` 命令使配置生效，
 当你在集群中的一个节点使配置生效后，其他节点自动更新配置。
@@ -42,7 +42,7 @@ format::
 
     src_ip=<range of IP addresses> action=<action> [method=<list of methods separated by '|'>]
 
- :file:`ip_allow.config` 文件的每行格式如下::
+:file:`ip_allow.config` 文件的每行格式如下::
 
     src_ip=<range of IP addresses> action=<action> [method=<list of methods separated by '|'>]
 

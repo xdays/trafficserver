@@ -34,7 +34,7 @@ Control <http#UsingCongestionControl>`_ option.
 
 文件 :file:`congestion.config` 可以控制在Traffice Server拥塞的时候停止把请求
 转发给源站，然后发送给客户端一个稍后重新请求拥塞服务器的信息。在修改了
- :file:`congestion.config` 文件后，进入bin目录，然后执行 `traffic_line -x` 使
+:file:`congestion.config` 文件后，进入bin目录，然后执行 `traffic_line -x` 使
 配置生效。当你把配置应用到集群中的一个节点后，集群内的其他节点会自动更新配置。
 只有打开了 `Congestion Control <http#UsingCongestionControl>`_ 选项后，
 Traffic Server才会使用配置文件 :file:`congestion.config`

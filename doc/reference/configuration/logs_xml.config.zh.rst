@@ -25,7 +25,7 @@ The :file:`logs_xml.config` file defines the custom log file formats,
 filters, and processing options. The format of this file is modeled
 after XML, the Extensible Markup Language.
 
- :file:`logs_xml.config` 文件定义日志格式，过滤器和处理选项。文件格式为
+:file:`logs_xml.config` 文件定义日志格式，过滤器和处理选项。文件格式为
 XML，可扩展标记语言。
 
 Format
@@ -41,7 +41,7 @@ The :file:`logs_xml.config` file contains the specifications below:
 -  ``LogObject`` specifies an object that contains a particular format,
    a local filename, filters, and collation servers.
 
-  :file:`logs_xml.config` 文件包含如下规范:
+:file:`logs_xml.config` 文件包含如下规范:
 
 -  ``LogFormat`` 指定从每种协议收集的字段
 -  ``LogFilter`` 指定基于包含或者排除日志条目的字段的过滤器
@@ -50,7 +50,8 @@ The :file:`logs_xml.config` file contains the specifications below:
 The :file:`logs_xml.config` file ignores extra white space, blank lines, and
 all comments.
 
- :file:`logs_xml.config` 文件中的空格，空行和注视行会被忽略。
+:file:`logs_xml.config` 文件中的空格，空行和注视行会被忽略。
+
 .. _LogFormat:
 
 LogFormat
@@ -58,7 +59,7 @@ LogFormat
 
 The following list shows ``LogFormat`` specifications.
 
- ``LogFormat`` 规范如下。
+``LogFormat`` 规范如下。
 
 .. _LogFormat-name:
 
@@ -82,10 +83,9 @@ The following list shows ``LogFormat`` specifications.
     ``field`` ``>`` as a placeholder for valid field names. For more
     information, refer to :ref:`custom-logging-fields`.
 
-    必须
+    必须的
     合法的日志规范应该是printf样式的字符串，它们用来格式化ASCII日志记录。 
-      ``%<`` ``field`` ``>`` 是字段名称的包含符。更多信息请参考 :ref:
-    `custom-logging-fields`.
+    ``%<`` ``field`` ``>`` 是字段名称的包含符。更多信息请参考 :ref: `custom-logging-fields`.
 
     The specified field can be one of the following types:
 
@@ -106,10 +106,9 @@ The following list shows ``LogFormat`` specifications.
 
          %<{ field } container>
 
-    聚合的，像 ``COUNT``, ``SUM``, ``AVG``, ``FIRST``,
-    ``LAST``. 这类字段语法是: ::
+    聚合的，像 ``COUNT``, ``SUM``, ``AVG``, ``FIRST``, ``LAST``. 这类字段语法是: ::
 
-    ``%<operator (`` ``field`` ``)>``
+         ``%<operator (`` ``field`` ``)>``
 
 .. note::
 
@@ -179,16 +178,15 @@ The following list shows the ``LogFilter`` specifications.
 
     -  ``MATCH`` is true if the field and value are identical
        (case-sensitive).
+    -  ``MATCH`` 字段和值完全匹配
     -  ``CASE_INSENSITIVE_MATCH`` is similar to ``MATCH``, except that
        it is case-insensitive.
+    -  ``CASE_INSENSITIVE_MATCH`` 和 ``MATCH`` 一样，除了大小写不敏感
     -  ``CONTAIN`` is true if the field contains the value (the value is
        a substring of the field).
+    -  ``CONTAIN`` 字段里包含对应的值
     -  ``CASE_INSENSITIVE_CONTAIN`` is a case-insensitive version of
        ``CONTAIN``.
-
-    -  ``MATCH`` 字段和值完全匹配
-    -  ``CASE_INSENSITIVE_MATCH`` 和 ``MATCH`` 一样，除了大小写不敏感
-    -  ``CONTAIN`` 字段里包含对应的值
     -  ``CASE_INSENSITIVE_CONTAIN`` 和 ``CONTAIN`` 一样，除了大小写不敏感
 
     ``valid_comparison_value`` - any string or integer matching the
@@ -222,7 +220,7 @@ LogObject
 
 The following list shows the ``LogObject`` specifications.
 
- ``LogObject`` 的规范如下列表。
+``LogObject`` 的规范如下列表。
 
 ``<Format = "valid_format_name"/>``
     Required
@@ -251,9 +249,8 @@ The following list shows the ``LogObject`` specifications.
     ASCII logs and ``.blog`` for binary logs (refer to :ref:`Mode =
     "valid_logging_mode" <LogObject-Mode>`_).
 
-    如果文件名没有扩展名（比如， ``squid`` ），那么ASCII日志会自动追加
-``.log`` ，二进制日志会自动追加 ``.blog`` (参考 :ref:`Mode =
-    "valid_logging_mode" <LogObject-Mode>`_).
+    如果文件名没有扩展名（比如， ``squid`` ），那么ASCII日志会自动追加 ``.log``,
+    二进制日志会自动追加 ``.blog`` (参考 :ref:`Mode = "valid_logging_mode" <LogObject-Mode>`_).
 
     If you do not want an extension to be added, then end the filename
     with a single (.) dot (for example: ``squid.`` ).
@@ -535,7 +532,7 @@ and to port 5000 of the collation host ``209.131.52.129.`` ::
          </LogObject>
 
 如下是一个 ``LogObject`` 的例子，用于仅把 ``company.com`` 域名和
- ``server.somewhere.com`` 这台服务器的HTTP请求写入日志。 日志条目会被发送
+``server.somewhere.com`` 这台服务器的HTTP请求写入日志。 日志条目会被发送
 至 ``logs.company.com`` 这台机器的4000端口和 ``209.131.52.129.`` 这台机器的5000
 端口： ::
 
@@ -568,7 +565,7 @@ file, create a ``<LogObject>`` that uses this predefined format. ::
          </LogFormat>
 
 Traffic Server支持WELF，因此你可以通过WebTrends报告工具来分析日志，
- :file:`logs_xml.config`  文件里提供了一个预先定义的  ``<LogFormat>`` （如下）
+:file:`logs_xml.config`  文件里提供了一个预先定义的  ``<LogFormat>`` （如下）
 想要创建WELF格式的日志文件，创建一个使用该预先定义的日志格式的  ``<LogObject>`` 
 即可： ::
 

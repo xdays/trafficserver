@@ -16,7 +16,7 @@
   under the License.
 
 ================
-log_hosts.config
+log_hosts.config（中文）
 ================
 
 .. configfile:: log_hosts.config
@@ -32,11 +32,11 @@ When you apply the changes to a node in a cluster, Traffic Server automatically 
 changes to all other nodes in the cluster.
 
 用于分别记录每个源站的请求到指定文件里， 需要在 :file:`log_hosts.config` 文件中列出
-所有源站的主机名。此外，你需要打开  `HTTP Host Log Splitting
- <../working-log-files#HTTPHostLogSplitting>`_ 选项。在集群中的每一台Traffic
-Server的 :file:`log_hosts.config` 要保持一致。 当你修改了 :file:`hosting.config` 
-之后，切换到Traffic Server的bin目录，然后 执行 :option:`traffic_line -x` 
-命令使配置生效，当你在集群中的一个节点使配置生效后，其他节点自动更新配置。
+所有源站的主机名。此外，你需要打开  `HTTP Host Log Splitting <../working-log-files#HTTPHostLogSplitting>`
+选项。在集群中的每一台Traffic Server的 :file:`log_hosts.config` 要保持一致。
+当你修改了 :file:`hosting.config` 之后，切换到Traffic Server的bin目录，然后
+执行 :option:`traffic_line -x` 命令使配置生效，当你在集群中的一个节点使配置生效后，
+其他节点自动更新配置。
 
 Format
 ======
@@ -51,13 +51,13 @@ Each line in the :file:`log_hosts.config` file has the following format::
 
 where ``hostname`` is the hostname of the origin server.
 
+这里的 ``hostname`` 就是源站的主机名
+
 .. hint::
 
     You can specify keywords in the :file:`log_hosts.config` file to
     record all transactions from origin servers with the specified keyword
     in their names in a separate log file. See the example below.
-
-这里的 ``hostname`` 就是源站的主机名
 
 .. hint::
 

@@ -32,7 +32,7 @@ according to size and protocol in the :file:`volume.config`
 file. For step-by-step instructions about partitioning your cache, refer
 to `Partitioning the Cache <../configuring-cache#PartitioningCache>`_.
 
- :file:`hosting.config` 文件用于给特定源站或者域名指定缓存分区，这样能更好
+:file:`hosting.config` 文件用于给特定源站或者域名指定缓存分区，这样能更好
 地使用缓存空间和对磁盘做限制。想了解如何一步一步按源站或者域名限制缓存分区
 使用，请参考 `Partitioning the Cache <../configuring-cache#PartitoningCache>`_.
 在给源站或者域名配置缓存分区前你需要在 :file:`volume.config` 先根据大小和协议对
@@ -82,7 +82,7 @@ domain listed. The partition numbers must be valid numbers listed in the
 file:`volume.config`.
 
 这里的 ``HOST`` 是想要缓存到特定分区的服务器的FQDN（比如 ``www.myhost.com`` ）;
- ``DOMAIN`` 是想要缓存到特定分区服务器的域名（ ``mydoain.com`` ）； ``NUMBERS``
+``DOMAIN`` 是想要缓存到特定分区服务器的域名（ ``mydoain.com`` ）； ``NUMBERS``
 是逗号分隔的属于这个服务器的分区，分区号必须配置到了 :file:`volume.config` 。
 
 **Note:** To allocate more than one partition to an origin server or
@@ -134,8 +134,8 @@ all other origin servers in partitions 3 and 4.
     hostname=www.myhost.com partition=2
     hostname=* partition=3,4
 
-如下配置事Traffic Server存储域名 ``mydomain.com`` 的内容到分区1，
- ``www.myhost.com`` 的内容到分区2。其他域名的内容保存到分区3和4。
+如下配置Traffic Server存储域名 ``mydomain.com`` 的内容到分区1，
+``www.myhost.com`` 的内容到分区2。其他域名的内容保存到分区3和4。
 
 ::
 
