@@ -262,7 +262,6 @@ These rules result in the following translation.
 
 这条规则使用如下转换规则：
 
-
 ================================ =====================================
 Client Request                   Translated Request
 ================================ =====================================
@@ -283,7 +282,14 @@ the target and replacement::
     map http://www.h.com/a/b/ http://server.h.com/customers/x/y
     reverse_map http://server.h.com/customers/x/y/ http://www.h.com/a/b/
 
+如下规则展示了在target和replacement中使用路径前缀::
+
+    map http://www.h.com/a/b/ http://server.h.com/customers/x/y
+    reverse_map http://server.h.com/customers/x/y/ http://www.h.com/a/b/
+
 This rule results in the following translation.
+
+这条规则使用如下转换规则：
 
 ===================================== ==================================================
 Client Request                        Translated Request
@@ -294,10 +300,18 @@ Client Request                        Translated Request
 
 The following example shows reverse-map rules::
 
+
+    map http://www.x.com/ http://server.hoster.com/x/
+    reverse_map http://server.hoster.com/x/ http://www.x.com/
+
+如下规则展示了反向映射的规则::
+
     map http://www.x.com/ http://server.hoster.com/x/
     reverse_map http://server.hoster.com/x/ http://www.x.com/
 
 These rules result in the following translations.
+
+这条规则使用如下转换规则：
 
 ================================ =====================================
 Client Request                   Translated Request
@@ -319,6 +333,10 @@ unable to route to URLs from older browsers that do not send the
 in the :file:`records.config` file to the URL to which Traffic Server will redirect
 requests without host headers.
 
+当Traffic Server用于多个服务器的反向代理时，有些旧的浏览器不携带 ``Host:`` 报头，Traffic Server就
+不能路由这些请求。一个解决办法是在  :file:`records.config` 文件中设置  :ts:cv:`proxy.config.header.parse.no_host_url_redirect`
+然后所有没有host报头的的请求都转发给这个host
+
 Redirect Mapping Rules
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -327,8 +345,16 @@ The following rule permanently redirects all HTTP requests for
 
     redirect http://www.company.com/ http://www.company2.com/
 
+如下规则永久重定向 ``www.company.com`` 到 ``www.company2.com``: ::
+
+    redirect http://www.company.com/ http://www.company2.com/
+
 The following rule *temporarily* redirects all HTTP requests for
 ``www.company1.com`` to ``www.company2.com``: ::
+
+    redirect_temporary http://www.company1.com/ http://www.company2.com/
+
+如下规则 *临时重定向* ``www.company1.com`` 到 ``www.company2.com``: ::
 
     redirect_temporary http://www.company1.com/ http://www.company2.com/
 
@@ -351,6 +377,15 @@ limitations below:
    ``regex_remap`` you should make sure the reverse path is clear by
    setting (:ts:cv:`proxy.config.url_remap.pristine_host_hdr`)
 
+正则表达式可用于反向映射规则中，但有如下限制：
+
+-  只有  ``host`` 字段可以包含正则； ``scheme`` ， ``port`` 等其他字段不能。对于
+   需要通过正则生成路径的情况可以使用 ``regex_remap`` 插件。
+-  最多可以捕捉9个子路径，也就是说从0到9可用于位置替换（ ``$0`` 表示所有的输入）
+-  最多可以有10次替换
+-  没有  ``reverse_remap`` 对应的 ``regex_`` ，所以在使用 ``regex_remap`` 要
+   确定反向路径已经通过 (:ts:cv:`proxy.config.url_remap.pristine_host_hdr`)清除
+
 Examples
 --------
 
@@ -368,6 +403,8 @@ Plugins can be configured to be evaluated in a specific order, passing
 the results from one in to the next (unless a plugin returns 0, then the
 "chain" is broken).
 
+通过一个一个传递返回值（除非插件返回0, 这样链中断），插件可以以特定顺序执行
+
 Examples
 --------
 
@@ -375,9 +412,9 @@ Examples
 
     map http://url/path http://url/path @plugin=/etc/traffic_server/config/plugins/plugin1.so @pparam=1 @pparam=2 @plugin=/etc/traffic_server/config/plugins/plugin2.so @pparam=3
 
-will pass "1" and "2" to plugin1.so and "3" to plugin2.so.
-
 This will pass "1" and "2" to plugin1.so and "3" to plugin2.so
+
+将会传递 "1" 和 "2" 给plugin1.so， 传递 "3" 给 plugin2.so
 
 .. _remap-config-named-filters:
 
@@ -390,6 +427,11 @@ directives. Named filters must be defined using ``.definefilter`` before
 being used. Once defined, ``.activatefilter`` can used to activate a
 filter for all mappings that follow until deactivated with
 ``.deactivatefilter``.
+
+命名过滤器可以通过 ``.definefilter``, ``.activatefilter``, 和 ``.deactivatefilter``
+被创建并应用于一组映射之上。 命名过滤器在使用前必须通过 ``.definefilter`` 定义。
+一旦定义好之后， ``.activatefilter`` 可用于激活对所有映射规则的过滤，直到通过
+指令 ``.deactivatefilter`` 关闭。
 
 Examples
 --------
@@ -413,3 +455,6 @@ The filter `disable_delete_purge` will be applied to all of the
 mapping rules. (It is activated before any mappings and is never
 deactivated.) The filter `internal_only` will only be applied to the
 second mapping.
+
+过滤器 `disable_delete_purge` 可以应用到所有的映射。（在所有映射规则定义前被激活并且没有关闭）
+过滤器 `internal_only` 只会用于第二个映射规则。
