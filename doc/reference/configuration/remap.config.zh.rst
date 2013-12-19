@@ -73,7 +73,7 @@ Traffic Server recognizes three space-delimited fields: ``type``,
 Traffic Server识别以空格分隔的 ``type``，`target`` 和 ``replacement`` 。 下边描述了
 每个字段的格式。
 
-.. _remap-config-format-type:
+.. .. _remap-config-format-type:
 
 ``type``
     Enter one of the following:
@@ -106,7 +106,7 @@ Traffic Server识别以空格分隔的 ``type``，`target`` 和 ``replacement`` 
 
        .. note: use the ``regex_`` prefix to indicate that the line has a regular expression (regex).
 
-.. _remap-config-format-target:
+.. .. _remap-config-format-target:
 
 ``target``
     Enter the origin ("from") URL. You can enter up to four components: ::
@@ -122,7 +122,7 @@ Traffic Server识别以空格分隔的 ``type``，`target`` 和 ``replacement`` 
     这里的 ``scheme`` 是 ``http`` 。
 
 
-.. _remap-config-format-replacement:
+.. .. _remap-config-format-replacement:
 
 ``replacement``
     Enter the origin ("from") URL. You can enter up to four components: ::
@@ -137,7 +137,7 @@ Traffic Server识别以空格分隔的 ``type``，`target`` 和 ``replacement`` 
 
     这里的 ``scheme`` 可以是 ``http`` 或者 ``https`` 。
 
-.. _remap-config-precedence:
+.. .. _remap-config-precedence:
 
 Precedence
 ==========
@@ -358,7 +358,7 @@ The following rule *temporarily* redirects all HTTP requests for
 
     redirect_temporary http://www.company1.com/ http://www.company2.com/
 
-.. _remap-config-regex:
+.. .. _remap-config-regex:
 
 Regular Expression (regex) Remap Support
 ========================================
@@ -394,7 +394,7 @@ Examples
     regex_map http://x([0-9]+).z.com/ http://real-x$1.z.com/
     regex_redirect http://old.(.*).z.com http://new.$1.z.com
 
-.. _remap-config-plugin-chaining:
+.. .. _remap-config-plugin-chaining:
 
 Plugin Chaining
 ===============
@@ -416,7 +416,7 @@ This will pass "1" and "2" to plugin1.so and "3" to plugin2.so
 
 将会传递 "1" 和 "2" 给plugin1.so， 传递 "3" 给 plugin2.so
 
-.. _remap-config-named-filters:
+.. .. _remap-config-named-filters:
 
 Named Filters
 =============

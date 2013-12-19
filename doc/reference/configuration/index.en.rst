@@ -52,4 +52,6 @@ Configuration File Reference（中文）
   storage.config.en
   storage.config.zh
   update.config.en
+  update.config.zh
   volume.config.en
+  volume.config.zh
