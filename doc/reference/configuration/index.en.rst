@@ -50,5 +50,6 @@ Configuration File Reference（中文）
   splitdns.config.zh
   ssl_multicert.config.en
   storage.config.en
+  storage.config.zh
   update.config.en
   volume.config.en

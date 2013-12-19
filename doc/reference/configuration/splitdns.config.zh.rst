@@ -16,7 +16,7 @@
   under the License.
 
 ===============
-splitdns.config
+splitdns.config（中文）
 ===============
 
 .. configfile:: splitdns.config
