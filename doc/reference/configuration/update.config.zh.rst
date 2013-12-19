@@ -16,7 +16,7 @@
   under the License.
 
 =============
-update.config
+update.config（中文）
 =============
 
 .. configfile:: update.config

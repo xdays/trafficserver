@@ -16,7 +16,7 @@
   under the License.
 
 =============
-volume.config
+volume.config（中文）
 =============
 
 .. configfile:: volume.config
