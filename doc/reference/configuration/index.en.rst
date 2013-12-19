@@ -44,6 +44,7 @@ Configuration File Reference（中文）
   plugin.config.en
   plugin.config.zh
   records.config.en
+  records.config.zh
   remap.config.en
   remap.config.zh
   splitdns.config.en
