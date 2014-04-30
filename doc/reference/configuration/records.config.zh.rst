@@ -381,15 +381,25 @@ Network
 
    Controls the global default IP addresses to which to bind proxy server ports. The value is a space separated list of IP addresses, one per supported IP address family (currently IPv4 and IPv6).
 
+   指定绑定地址，每个IP用空格分隔，目前支持IPv4和IPv6
+
 Unless explicitly specified in `proxy.config.http.server_ports`_ the server port will be bound to one of these addresses, selected by IP address family. The built in default is any address. This is used if no address for a family is specified. This setting is useful if most or all server ports should be bound to the same address.
+
+除非特殊指定 `proxy.config.http.server_ports`_ 指定的端口会被绑定到所有这里指定的地址上。如果指定的IP类型的IP没有有指定，默认是被绑定到所有的地址上。这点很在所有服务器的端口要被绑定到同一个IP地址上时很有帮助。
 
 .. note::
 
    This is ignored for inbound transparent server ports because they must be able to accept connections on arbitrary IP addresses.
 
+   对于流入事务这个配置会被忽略，因为所有端口都应该能接受连接。
+
 .. topic:: Example
 
    Set the global default for IPv4 to ``192.168.101.18`` and leave the global default for IPv6 as any address.::
+
+      LOCAL proxy.local.incoming_ip_to_bind STRING 192.168.101.18
+
+   配置全局的IPv4地址 ``192.168.101.18`` 然后保持IPv6为默认。::
 
       LOCAL proxy.local.incoming_ip_to_bind STRING 192.168.101.18
 
@@ -399,15 +409,25 @@ Unless explicitly specified in `proxy.config.http.server_ports`_ the server port
 
       LOCAL proxy.local.incoming_ip_to_bind STRING 192.168.101.18 fc07:192:168:101::17
 
+   配置IPv4默认地址  ``191.68.101.18`` 和IPv6默认地址 ``fc07:192:168:101::17``.::
+
+      LOCAL proxy.local.incoming_ip_to_bind STRING 192.168.101.18 fc07:192:168:101::17
+
 .. ts:cv:: LOCAL proxy.local.outgoing_ip_to_bind STRING 0.0.0.0 ::
 
    This controls the global default for the local IP address for outbound connections to origin servers. The value is a list of space separated IP addresses, one per supported IP address family (currently IPv4 and IPv6).
 
+   指定到源站的出口流量的绑定地址。每个IP用空格分隔，目前支持IPv和IPv6。
+
    Unless explicitly specified in `proxy.config.http.server_ports`_ one of these addresses, selected by IP address family, will be used as the local address for outbound connections. This setting is useful if most or all of the server ports should use the same outbound IP addresses.
+
+   除非特殊指定 `proxy.config.http.server_ports`_ 指定的端口会被绑定到所有这里指定的地址上。如果指定的IP类型的IP没有有指定，默认是被绑定到所有的地址上。这点很在所有服务器的出口流量要被绑定到同一个IP地址上时很有帮助。
 
 .. note::
 
    This is ignored for outbound transparent ports as the local outbound address will be the same as the client local address.
+
+   这个配置对于返回给客户端的本地地址不起作用。
 
 .. topic:: Example
 
@@ -415,9 +435,17 @@ Unless explicitly specified in `proxy.config.http.server_ports`_ the server port
 
       LOCAL proxy.local.outgoing_ip_to_bind STRING 192.168.101.18
 
+    默认的出口流量地址配置为 ``192.168.101.18``.::
+
+      LOCAL proxy.local.outgoing_ip_to_bind STRING 192.168.101.18
+
 .. topic:: Example
 
    Set the default local outbound IP address to ``192.168.101.17`` for IPv4 and ``fc07:192:168:101::17`` for IPv6.::
+
+      LOCAL proxy.local.outgoing_ip_to_bind STRING 192.168.101.17 fc07:192:168:101::17
+
+   默认的出口流量地址配置为 ``192.168.101.17`` 和 ``fc07:192:168:101::17``。::
 
       LOCAL proxy.local.outgoing_ip_to_bind STRING 192.168.101.17 fc07:192:168:101::17
 
@@ -436,19 +464,35 @@ Value Effect
 3     no clustering
 ===== ====================
 
+   配置集群模式：
+
+===== ====================
+Value Effect
+===== ====================
+1     完全集群模式
+2     仅管理集群模式
+3     关闭集群
+===== ====================
+
 .. ts:cv:: CONFIG proxy.config.cluster.rsport INT 8088
 
    The reliable service port. The reliable service port is used to send configuration information between the nodes in a cluster. All nodes
    in a cluster must use the same reliable service port.
+
+   可靠服务端口。该端口用于在集群的节点之间传递配置信息，集群中所有的节点必须使用相同的服务端口。
 
 .. ts:cv:: CONFIG proxy.config.cluster.threads INT 1
 
    The number of threads for cluster communication. On heavy cluster, the number should be adjusted. It is recommend that take the thread
    CPU usage as a reference when adjusting.
 
+   集群通信的线程数目。在高负荷的集群中，该值需要调整，建议参考CPU使用率来调整这个值。
+
 .. ts:cv:: CONFIG proxy.config.clustger.ethernet_interface STRING
 
    Set the interface to use for cluster communications.
+
+   设置用于集群通信的接口
 
 .. ts:cv:: CONFIG proxy.config.http.cache.cluster_cache_local INT 0
 
@@ -458,15 +502,25 @@ Value Effect
    via the :file:`cache.config` configuration file using
    ``action=cluster-cache-local`` directives.
 
+   开启集群模式的本地缓存。这样做是因为可以把热的资源缓存在集群的所有节点上，
+   注意配置该功能的基本方法是在 :file:`cache.config`  文件中指定 ``action=cluster-cache-local`` 指令
+
    This particular :file:`records.config` configuration can be controlled per
    transaction or per remap rule. As such, it augments the
    :file:`cache.config` directives, since you can turn on the local caching
    feature without complex regular expression matching.
 
+   这个  :file:`records.config` 特殊配置可以给予请求或者remap规则来配置。
+   因此该指定会增加 :file:`cache.config` 文件中的指令，
+   这样你就不需要添加复杂的正则规则来实现本地缓存
+
    This implies that turning this on in your global :file:`records.config` is
    almost never what you want; instead, you want to use this either via
    e.g. ``conf_remap.so`` overrides for a certain remap rule, or through a
    custom plugin using the appropriate APIs.
+
+   也就是说你几乎永远不需要在你的全局配置文件  :file:`records.config` 添加此配置：
+   你可以通过  ``conf_remap.so`` 来覆盖一个特定的remap规则，或者通过合适的API来实现
 
 
 Local Manager
@@ -476,23 +530,36 @@ Local Manager
 
    The semaphore ID for the local manager.
 
+   本地管理进程的信号ID
+
 .. ts:cv:: CONFIG proxy.config.admin.autoconf_port INT 8083
 
    The autoconfiguration port.
+
+   自动配置端口
 
 .. ts:cv:: CONFIG proxy.config.admin.number_config_bak INT 3
 
    The maximum number of copies of rolled configuration files to keep.
 
+   保存备份配置文件的份数
+
 .. ts:cv:: CONFIG proxy.config.admin.user_id STRING nobody
 
    Option used to specify who to run the :program:`traffic_server` process as; also used to specify ownership of config and log files.
 
+   运行  :program:`traffic_server` 进程的用户， 也用于指定配置文件和日志文件的所有泽。
+
 The nonprivileged user account designated to Traffic Server.
+
+指定给Traffic Server的非特权用户
 
 As of version 2.1.1 if the user_id is prefixed with pound character (#) the remaining of the string is considered to be
 a `numeric user identifier <http://en.wikipedia.org/wiki/User_identifier>`_. If the value is set to ``#-1`` Traffic
 Server will not change the user during startup.
+
+在2.1.1版本，可以用 (#) 前缀来指定用户id。如果值为  ``#-1``
+程序在启动的时候不会切换用户
 
 Setting ``user_id`` to ``root`` or ``#0`` is now forbidden to
 increase security. Trying to do so, will cause the
@@ -502,12 +569,20 @@ bypass that restriction
 * Specify ``-DBIG_SECURITY_HOLE`` in ``CXXFLAGS`` during compilation.
 * Set the ``user_id=#-1`` and start trafficserver as root.
 
+考虑到安全，配置成 ``root`` 或者  ``#0`` 是禁止的。会导致
+:program:`traffic_server` 启动失败，但是有两种方式来跳过这个限制
+
+* 编译的时候在 ``CXXFLAGS`` 里指定 ``-DBIG_SECURITY_HOLE``
+* 配置成 ``user_id=#-1`` 然后通过root启动
+
 Process Manager
 ===============
 
 .. ts:cv:: CONFIG proxy.config.process_manager.mgmt_port  INT 8084
 
    The port used for internal communication between the :program:`traffic_manager` and :program:`traffic_server` processes.
+
+   用于 :program:`traffic_manager` 和 :program:`traffic_server` 进程通信的端口
 
 Alarm Configuration
 ===================
@@ -517,9 +592,14 @@ Alarm Configuration
    Name of the script file that can execute certain actions when an alarm is signaled. The default file is a sample script named
    ``example_alarm_bin.sh`` located in the ``bin`` directory. You must dit the script to suit your needs.
 
+   告警触发的时候执行的脚本文件名称，默认是在 ``bin`` 目录下的 ``example_alarm_bin.sh`` 
+   你需要定制此脚本来满足你的需求。
+
 .. ts:cv:: CONFIG proxy.config.alarm.abs_path STRING NULL
 
    The full path to the script file that sends email to alert someone bout Traffic Server problems.
+
+   当Traffic Server故障时发邮件来通知的脚本的绝对路径。
 
 HTTP Engine
 ===========
@@ -528,7 +608,15 @@ HTTP Engine
 
    Ports used for proxying HTTP traffic.
 
+   代理HTTP流量的端口
+
 This is a list, separated by space or comma, of :index:`port descriptors`. Each descriptor is a sequence of keywords and values separated by colons. Not all keywords have values, those that do are specifically noted. Keywords with values can have an optional '=' character separating the keyword and value. The case of keywords is ignored. The order of keywords is irrelevant but unspecified results may occur if incompatible options are used (noted below). Options without values are idempotent. Options with values use the last (right most) value specified, except for ``ip-out`` as detailed later.
+
+这是一个空格或者逗号分隔的 :index:`port descriptors` 列表，每个描述符是由分号分隔的
+关键字和值序列，并不是所有的关键字都有值，这些会特别指出。有值的关键字可以用 '='
+分隔。关键字大小写不敏感。关键字的顺序没有关系，但是如果不兼容的选项同时出现会发生
+不可预知的结果（详见下表）。没有值的关键字是幂等的，带有值的关键值用最后一个值，
+除了 ``ip-out`` ，后文有详细说明。
 
 Quick reference chart.
 
@@ -550,37 +638,79 @@ blind                       Blind (``CONNECT``) port.
 compress    **N/I**         Compressed. Not implemented.
 =========== =============== ========================================
 
+快速参考卡片
+
+=========== =============== ========================================
+Name        Note            Definition
+=========== =============== ========================================
+*number*    **Required**    本地端口
+ipv4        **Default**     IPv4
+ipv6                        IPv6
+tr-in                       入口流量
+tr-out                      出口流量
+tr-full                     双向流量
+tr-pass                     允许流经
+ssl                         终止SSL
+ip-in       **Value**       本地入口地址
+ip-out      **Value**       本地出口地址
+ip-resolve  **Value**       IP地址解析风格
+blind                       黑洞端口(``CONNECT``)
+compress    **N/I**         压缩，尚未实现
+=========== =============== ========================================
+
 *number*
    Local IP port to bind. This is the port to which ATS clients will connect.
+
+   本地绑定的端口，这是所有ATS客户端要连接的端口
 
 ipv4
    Use IPv4. This is the default and is included primarily for completeness. This forced if the ``ip-in`` option is used with an IPv4 address.
 
+   使用IPv4
+
 ipv6
    Use IPv6. This is forced if the ``ip-in`` option is used with an IPv6 address.
+
+   使用IPv4
 
 tr-in
    Inbound transparent. The proxy port will accept connections to any IP address on the port. To have IPv6 inbound transparent you must use this and the ``ipv6`` option. This overrides :ts:cv:`proxy.local.incoming_ip_to_bind`.
 
    Not compatible with: ``ip-in``, ``ssl``, ``blind``
 
+   入口流量，代理会接受到所有IP的连接， 要接受IPv6请求要指定 ``ipv6`` 选项。改配置会覆盖  :ts:cv:`proxy.local.incoming_ip_to_bind`.
+
+   与 ``ip-in``, ``ssl``, ``blind`` 不兼容
+
 tr-out
    Outbound transparent. If ATS connects to an origin server for a transaction on this port, it will use the client's address as its local address. This overrides :ts:cv:`proxy.local.outgoing_ip_to_bind`.
 
    Not compatible with: ``ip-out``, ``ssl``, ``ip-resolve``
+
+   出口流量，如果ATS在此端口为一个请求连接源站， 它会使用客户端IP作为本地地址。 这个覆盖  :ts:cv:`proxy.local.outgoing_ip_to_bind`.
+
+   与 ``ip-out``, ``ssl``, ``ip-resolve`` 不兼容
 
 tr-full
    Fully transparent. This is a convenience option and is identical to specifying both ``tr-in`` and ``tr-out``.
 
    Not compatible with: Any option not compatible with ``tr-in`` or ``tr-out``.
 
+   双向流量。 等同于 ``tr-in`` 和 ``tr-out``.
+
 tr-pass
    Transparent pass through. This option is useful only for inbound transparent proxy ports. If the parsing of the expected HTTP header fails, then the transaction is switched to a blind tunnel instead of generating an error response to the client. It effectively enables :ts:cv:`proxy.config.http.use_client_target_addr` for the transaction as there is no other place to obtain the origin server address.
+
+   透明传输。用于指定入口方向的透明传输代理端口。如果解析HTTP报头失败， 会转换成一个隧道而不是返回错误信息给客户端。 :ts:cv:`proxy.config.http.use_client_target_addr` 会被开启，因为因为没有获取源站IP的方式。
 
 ip-in
    Set the local IP address for the port. This is the address to which clients will connect. This forces the IP address family for the port. The ``ipv4`` or ``ipv6`` can be used but it is optional and is an error for it to disagree with the IP address family of this value. An IPv6 address **must** be enclosed in square brackets. If this options is omitted :ts:cv:`proxy.local.incoming_ip_to_bind` is used.
 
    Not compatible with: ``tr-in``.
+
+  指定本地IP地址。所有客户端连接的地址。这个配置限制端口对应的协议类型。可以指定 ``ipv4`` or ``ipv6`` , 但是是可选的，如果值与类型不匹配会报错。 IPv6地址必须用方括号括起来。如果不指定该选项， :ts:cv:`proxy.local.incoming_ip_to_bind` 会生效。
+
+  与``tr-in`` 不兼容
 
 ip-out
    Set the local IP address for outbound connections. This is the address used by ATS locally when it connects to an origin server for transactions on this port. If this is omitted :ts:cv:`proxy.local.outgoing_ip_to_bind` is used.
@@ -589,27 +719,51 @@ ip-out
 
    Not compatible with: ``tr-out``.
 
+   出口连接的IP，也就是连接源站时使用的IP地址。如果不指定 :ts:cv:`proxy.local.outgoing_ip_to_bind` 会生效。
+
+   这个选项可以使用多次，每个协议类型都可以使用，ATS根据源站的地址选择。
+
+   与 ``tr-out`` 不兼容。
+
 ip-resolve
    Set the :ts:cv:`host resolution style <proxy.config.hostdb.ip_resolve>` for transactions on this proxy port.
 
    Not compatible with: ``tr-out``.
+
+   配置解析代理端口的  :ts:cv:`host resolution style <proxy.config.hostdb.ip_resolve>` 
+
+   与  ``tr-out`` 不兼容
 
 ssl
    Require SSL termination for inbound connections. SSL :ref:`must be configured <configuring-ssl-termination>` for this option to provide a functional server port.
 
    Not compatible with: ``tr-in``, ``tr-out``, ``blind``.
 
+   要求入口连接终止SSL。 SSL  :ref:`must be configured <configuring-ssl-termination>`  来提供一个功能端口
+
+   与 ``tr-in``, ``tr-out``, ``blind`` 不兼容
+
 blind
    Accept only ``CONNECT`` transactions on this port.
 
    Not compatible with: ``tr-in``, ``ssl``.
 
+   只接受 ``CONNECT`` 连接
+
+   与 ``tr-in``, ``ssl`` 不兼容
+
 compress
    Compress the connection. Retained only by inertia, should be considered "not implemented".
+
+   压缩连接
 
 .. topic:: Example
 
    Listen on port 80 on any address for IPv4 and IPv6.::
+
+      80 80:ipv6
+
+   在80上监听IPv4和IPv6请求::
 
       80 80:ipv6
 
@@ -621,9 +775,19 @@ compress
 
       IPv4:tr-FULL:8080 TR-full:IP-in=[fc02:10:10:1::1]:8080
 
+   在IPv的8080端口监听透明传输，在``fc01:10:10:1::1``的
+   8080接受透明传输
+
+      IPv4:tr-FULL:8080 TR-full:IP-in=[fc02:10:10:1::1]:8080
+
 .. topic:: Example
 
    Listen on port 8080 for IPv6, fully transparent. Set up an SSL port on 443. These ports will use the IP address from :ts:cv:`proxy.local.incoming_ip_to_bind`.  Listen on IP address ``192.168.17.1``, port 80, IPv4, and connect to origin servers using the local address ``10.10.10.1`` for IPv4 and ``fc01:10:10:1::1`` for IPv6.::
+
+      8080:ipv6:tr-full 443:ssl ip-in=192.168.17.1:80:ip-out=[fc01:10:10:1::1]:ip-out=10.10.10.1
+
+   监听IPv6的8080，双向传输。在443上监听SSL。这些端口会使用 :ts:cv:`proxy.local.incoming_ip_to_bind` 指定的IP
+   在 ``192.168.17.1`` 监听，端口为80， IPv4， 用 ``10.10.10.1`` 和 ``fc01:10:10:1::1`` 连接源站.
 
       8080:ipv6:tr-full 443:ssl ip-in=192.168.17.1:80:ip-out=[fc01:10:10:1::1]:ip-out=10.10.10.1
 
@@ -634,15 +798,23 @@ compress
 Traffic Server allows tunnels only to the specified ports.
 Supports both wildcards ('\*') and ranges ("0-1023").
 
+   用于 ``CONNECT`` 隧道连接的服务端口。
+
+Traffic Server只允许到特定端口的隧道。既支持通配符 ('\*') 又支持("0-1023")
+
 .. note::
 
    These are the ports on the *origin server*, not Traffic Server :ts:cv:`proxy ports <proxy.config.http.server_ports>`.
+
+   这些都是源站的端口，不是ATS的端口 :ts:cv:`proxy ports <proxy.config.http.server_ports>`
 
 .. ts:cv:: CONFIG proxy.config.http.insert_request_via_str INT 1
    :reloadable:
 
    Set how the ``Via`` field is handled on a request to the origin server.
 
+   配置via字段的处理方式
+
 ===== ============================================
 Value Effect
 ===== ============================================
@@ -652,15 +824,28 @@ Value Effect
 3     Update the via, with highest verbosity
 ===== ============================================
 
+===== ============================================
+Value Effect
+===== ============================================
+0     不做修改
+1     用正常的信息来更新via
+2     用详细信息来更新via
+3     用最详细信息来更新via
+===== ============================================
+
 .. note::
 
    The ``Via`` header string interpretation can be `decoded here. </tools/via>`_
+
+   via报头可以用这个工具解析 `decoded here. </tools/via>`_
 
 .. ts:cv:: CONFIG proxy.config.http.insert_response_via_str INT 0
    :reloadable:
 
    Set how the ``Via`` field is handled on the response to the client.
 
+   配置如何处理响应到客户端的via字段
+
 ===== ============================================
 Value Effect
 ===== ============================================
@@ -670,9 +855,20 @@ Value Effect
 3     Update the via, with highest verbosity
 ===== ============================================
 
+===== ============================================
+Value Effect
+===== ============================================
+0     不做修改
+1     用正常的信息来更新via
+2     用详细信息来更新via
+3     用最详细信息来更新via
+===== ============================================
+
 .. note::
 
    The ``Via`` header string interpretation can be `decoded here. </tools/via>`_
+
+   via报头可以用这个工具解析 `decoded here. </tools/via>`_
 
 .. ts:cv:: CONFIG proxy.config.http.response_server_enabled INT 1
    :reloadable:
@@ -683,6 +879,12 @@ Value Effect
    -  ``1`` the Server: header is added (see string below).
    -  ``2`` the Server: header is added only if the response from rigin does not have one already.
 
+   你可以指定如下配置：
+
+   -  ``0`` 不添加Server报头
+   -  ``1`` 添加Server报头 (see string below).
+   -  ``2`` 如果源站没有则添加一个Server报头
+
 .. ts:cv:: CONFIG proxy.config.http.insert_age_in_response INT 1
    :reloadable:
 
@@ -692,11 +894,18 @@ Value Effect
    -  ``0`` no ``Age`` header is added
    -  ``1`` the ``Age`` header is added
 
+   配置是否插入 ``Age`` 报头, 该报头用于指定缓存的自对象生成或者校验后的寿命.
+
+   -  ``0`` 不添加
+   -  ``1`` 添加
+
 .. ts:cv:: CONFIG proxy.config.http.response_server_str STRING ATS/
    :reloadable:
 
    The Server: string that ATS will insert in a response header (if requested, see above). Note that the current version number is
    always appended to this string.
+
+   Server报头的内容，注意当前的版本号始终会追加到最后。
 
 .. ts:cv:: CONFIG proxy.config.http.enable_url_expandomatic INT 1
    :reloadable:
@@ -704,6 +913,8 @@ Value Effect
    Enables (``1``) or disables (``0``) ``.com`` domain expansion. This configures the Traffic Server to resolve unqualified hostnames by
    prepending with ``www.`` and appending with ``.com`` before redirecting to the expanded address. For example: if a client makes
    a request to ``host``, then Traffic Server redirects the request to ``www.host.com``.
+
+   是否允许域名扩展，就是在前边追加 ``www.`` 在后边追加 ``.com`` 来回源
 
 .. ts:cv:: CONFIG proxy.config.http.chunking_enabled INT 1
    :reloadable:
@@ -715,6 +926,13 @@ Value Effect
    -  ``2`` Generate a chunked response if the server has returned HTTP/1.1 before
    -  ``3`` = Generate a chunked response if the client request is HTTP/1.1 and the origin server has returned HTTP/1.1 before
 
+   指定ATS是否能返回分块响应:
+
+   -  ``0`` 永远不
+   -  ``1`` 一直可以
+   -  ``2`` 如果源站返回过HTTP/1.1，则可以分片
+   -  ``3`` 如果客户端发起过HTTP/1.1， 源站返回过HTTP/1.1，则可以分片
+
    .. note::
 
        If HTTP/1.1 is used, then Traffic Server can use
@@ -724,18 +942,28 @@ Value Effect
        Server can use ``keep-alive`` connections without pipelining to
        origin servers.
 
+       如果使用的是HTTP/1.1，ATS可以使用长连接来和源站保持管道。
+       如果使用的是HTTP/0.9，ATS不会使用长连接。
+       如果使用的是HTTP/1.0，ATS可是使用长连接但是没有管道。
+
 .. ts:cv:: CONFIG proxy.config.http.share_server_sessions INT 1
 
    Enables (``1``) or disables (``0``) the reuse of server sessions.
+
+   是否允许复用服务器会话
 
 .. ts:cv:: CONFIG proxy.config.http.record_heartbeat INT 0
    :reloadable:
 
    Enables (``1``) or disables (``0``) :program:`traffic_cop` heartbeat ogging.
 
+   是否开启 :program:`traffic_cop` 的心跳
+
 .. ts:cv:: CONFIG proxy.config.http.use_client_target_addr  INT 0
 
    For fully transparent ports use the same origin server address as the client.
+
+   对于双向通信，使用客户端相同的源站地址
 
 This option causes Traffic Server to avoid where possible doing DNS
 lookups in forward transparent proxy mode. The option is only
@@ -745,13 +973,24 @@ effective if the following three conditions are true -
 *  The proxy port is inbound transparent.
 *  The target URL has not been modified by either remapping or a plugin.
 
+这个选项可以控制ATS在透明代理模式下避免再次DNS查询，只有满足如下条件才剩下 -
+
+*  ATS工作在转发代理模式
+*  代理端口是入口流量
+* 目标URL没有被remap规则修改
+
 If any of these conditions are not true, then normal DNS processing
 is done for the connection.
+
+如果任何一个条件不满足的话，还是要DNS查询。
 
 If all of these conditions are met, then the origin server IP
 address is retrieved from the original client connection, rather
 than through HostDB or DNS lookup. In effect, client DNS resolution
 is used instead of Traffic Server DNS.
+
+如果所有条件都满足，那么源站IP地址会从原始的客户端连接里获取，而不是通过
+HostDB或者DNS查询，效果上说就是用客户端的DNS解析而不是ATS的。
 
 This can be used to be a little more efficient (looking up the
 target once by the client rather than by both the client and Traffic
@@ -775,6 +1014,18 @@ from that of Traffic Server. Two known uses cases are:
    addresses by name. In such as case the client supplied target
    address must be used.
 
+这个配置可以用的更高效些（根据客户端来查询而不是根据客户端加源站来查询）
+但是如果客户端使用的DNS解析和ATS的不一样，那么还是基本的用法，有以下两种
+应用场景:
+
+#. 在协议里通过DNS负载据恒嵌入IP地址。这个情况下尽管ATS和客户端发起同样的
+   请求，他们可能获取不同的结果。如果嵌入IP地址整个传输会失败。目前的一个
+   例子是微软的更新，嵌入IP作为一个安全标准。
+
+#. 客户端拥有本地域名解析zone的权限，而ATS没有。有些公司网络只给内部网络
+   提供DNS信息，这样外部网络无法获取。这样ATS只能到达服务器但是不能通过
+   域名解析到该服务器地址，这种情况下只能用客户端提供的目标地址。
+
 This solution must be considered interim. In the longer term, it
 should be possible to arrange for much finer grained control of DNS
 lookup so that wildcard domain can be set to use Traffic Server or
@@ -783,6 +1034,10 @@ as client determined (rather than a single global switch) would
 suffice. It is possible to do this crudely with this flag by
 enabling it and then use identity URL mappings to re-disable it for
 specific domains.
+
+这个解决办法可能是临时的。 从长远考虑， 调整DNS解析让ATS和客户端都能
+使用应该是可能的。 这两种应用场景，由客户端决定标识特定的域是可以满足需求的
+通过URL映射来禁用特定的域也可以很粗糙的达到同样的效果。
 
 Parent Proxy Configuration
 ==========================
