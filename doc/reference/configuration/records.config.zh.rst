@@ -1047,15 +1047,21 @@ Parent Proxy Configuration
 
    Enables (``1``) or disables (``0``) the parent caching option. Refer to :ref:`hierarchical-caching`.
 
+   开启(``1``)或者关闭(``0``)父级缓存选项。具体参考  :ref:`hierarchical-caching`.
+
 .. ts:cv:: CONFIG proxy.config.http.parent_proxy.retry_time INT 300
    :reloadable:
 
    The amount of time allowed between connection retries to a parent cache that is unavailable.
 
+   当父级缓存不可达时重试的时间间隔。
+
 .. ts:cv:: CONFIG proxy.config.http.parent_proxy.fail_threshold INT 10
    :reloadable:
 
    The number of times the connection to the parent cache can fail before Traffic Server considers the parent unavailable.
+
+   当重试多少次失败之后标识父级缓存不可达。
 
 .. ts:cv:: CONFIG proxy.config.http.parent_proxy.total_connect_attempts INT 4
    :reloadable:
@@ -1063,25 +1069,35 @@ Parent Proxy Configuration
    The total number of connection attempts allowed to a parent cache before Traffic Server bypasses the parent or fails the request
    (depending on the ``go_direct`` option in the :file:`parent.config` file).
 
+   尝试多少次失败之后 Traffic Server 会跳过父级缓存或者返回错误响应（依赖  :file:`parent.config`  文件的 ``go_direct`` 选项）
+
 .. ts:cv:: CONFIG proxy.config.http.parent_proxy.per_parent_connect_attempts INT 2
    :reloadable:
 
    The total number of connection attempts allowed per parent, if multiple parents are used.
+
+   如果有多个父级缓存，每个父级缓存尝试连接的次数限制。
 
 .. ts:cv:: CONFIG proxy.config.http.parent_proxy.connect_attempts_timeout INT 30
    :reloadable:
 
    The timeout value (in seconds) for parent cache connection attempts.
 
+   连接父级缓存的超时时间。
+
 .. ts:cv:: CONFIG proxy.config.http.forward.proxy_auth_to_parent INT 0
    :reloadable:
 
    Configures Traffic Server to send proxy authentication headers on to the parent cache.
 
+   配置 Traffic Server 传递认证请求头给父级缓存。
+
 .. ts:cv:: CONFIG proxy.config.http.no_dns_just_forward_to_parent INT 0
    :reloadable:
 
    Don't try to resolve DNS, forward all DNS requests to the parent. This is off (``0``) by default.
+
+   不做DNS解析，直接让父级缓存区解析，此配置默认是关闭的
 
 HTTP Connection Timeouts
 ========================
@@ -1091,20 +1107,28 @@ HTTP Connection Timeouts
 
    Specifies how long Traffic Server keeps connections to clients open for a subsequent request after a transaction ends.
 
+   配置Traffic Server与客户端的保持连接时间
+
 .. ts:cv:: CONFIG proxy.config.http.keep_alive_no_activity_timeout_out INT 10
    :reloadable:
 
    Specifies how long Traffic Server keeps connections to origin servers open for a subsequent transfer of data after a transaction ends.
+
+   配置Traffic Server与源站的保持连接时间
 
 .. ts:cv:: CONFIG proxy.config.http.transaction_no_activity_timeout_in INT 120
    :reloadable:
 
    Specifies how long Traffic Server keeps connections to clients open if a transaction stalls.
 
+   配置Traffic Server与客户端的保持连接时间，如果事务中断。
+
 .. ts:cv:: CONFIG proxy.config.http.transaction_no_activity_timeout_out INT 120
    :reloadable:
 
    Specifies how long Traffic Server keeps connections to origin servers open if the transaction stalls.
+
+   配置Traffic Server与源站的保持连接时间，如果事务中断。
 
 .. ts:cv:: CONFIG proxy.config.http.transaction_active_timeout_in INT 0
    :reloadable:
@@ -1112,7 +1136,11 @@ HTTP Connection Timeouts
    The maximum amount of time Traffic Server can remain connected to a client. If the transfer to the client is not complete before this
    timeout expires, then Traffic Server closes the connection.
 
+   如果传输尚未完成，Traffic Server能与客户端的连接保持时间，之后其将关闭连接
+
 The default value of ``0`` specifies that there is no timeout.
+
+默认值为 ``0`` 表示没有超时时间
 
 .. ts:cv:: CONFIG proxy.config.http.transaction_active_timeout_out INT 0
    :reloadable:
@@ -1120,23 +1148,33 @@ The default value of ``0`` specifies that there is no timeout.
    The maximum amount of time Traffic Server waits for fulfillment of a connection request to an origin server. If Traffic Server does not
    complete the transfer to the origin server before this timeout expires, then Traffic Server terminates the connection request.
 
+   如果传输尚未完成，Traffic Server能与源站的连接保持时间，之后其将关闭连接
+
 The default value of ``0`` specifies that there is no timeout.
+
+默认值为 ``0`` 表示没有超时时间
 
 .. ts:cv:: CONFIG proxy.config.http.accept_no_activity_timeout INT 120
    :reloadable:
 
    The timeout interval in seconds before Traffic Server closes a connection that has no activity.
 
+   在 Traffic Server关闭一个连接之前的时间间隔
+
 .. ts:cv:: CONFIG proxy.config.http.background_fill_active_timeout INT 60
    :reloadable:
 
    Specifies how long Traffic Server continues a background fill before giving up and dropping the origin server connection.
+
+   配置Traffic Server在断开与源站的连接之前在后台填充的时间
 
 .. ts:cv:: CONFIG proxy.config.http.background_fill_completed_threshold FLOAT 0.50000
    :reloadable:
 
    The proportion of total document size already transferred when a client aborts at which the proxy continues fetching the document
    from the origin server to get it into the cache (a **background fill**).
+
+   配置当客户端断开连接文档已经传输的比例，大于该比例Traffic Server会从源站继续获取资源存到cache里 (a **background fill**)
 
 Origin Server Connect Attempts
 ==============================
@@ -1146,20 +1184,28 @@ Origin Server Connect Attempts
 
    The maximum number of connection retries Traffic Server can make when the origin server is not responding.
 
+   当源站无响应时Traffic Server重试的最大次数。
+
 .. ts:cv:: CONFIG proxy.config.http.connect_attempts_max_retries_dead_server INT 2
    :reloadable:
 
    The maximum number of connection retries Traffic Server can make when the origin server is unavailable.
+
+   当源站不可用时Traffic Server重试的最大次数
 
 .. ts:cv:: CONFIG proxy.config.http.server_max_connections INT 0
    :reloadable:
 
    Limits the number of socket connections across all origin servers to the value specified. To disable, set to zero (``0``).
 
+   限制到所有源站的socket连接数，如果值为 ``0`` 则关闭限制
+
 .. ts:cv:: CONFIG proxy.config.http.origin_max_connections INT 0
    :reloadable:
 
    Limits the number of socket connections per origin server to the value specified. To enable, set to one (``1``).
+
+   限制每个源站的socket连接数，如果值为  ``1`` 则开启
 
 .. ts:cv:: CONFIG proxy.config.http.origin_min_keep_alive_connections INT 0
    :reloadable:
@@ -1169,16 +1215,23 @@ Origin Server Connect Attempts
    needed to set up a new connection from
    the next request at the expense of added (inactive) connections. To enable, set to one (``1``).
 
+   当到源站的连接打开后，保持n个链接始终打开状态，即使在一段时间内连接没有使用。当源站支持
+   keep-alive这一点特别有用，它降低了下次请求来是建立新连接的时间。如果值为 ``1`` 则开启
+
 .. ts:cv:: CONFIG proxy.config.http.connect_attempts_rr_retries INT 2
    :reloadable:
 
    The maximum number of failed connection attempts allowed before a round-robin entry is marked as 'down' if a server
    has round-robin DNS entries.
 
+   配置失败连接的次数，超过这个次数则标记服务器宕机
+
 .. ts:cv:: CONFIG proxy.config.http.connect_attempts_timeout INT 30
    :reloadable:
 
    The timeout value (in seconds) for an origin server connection.
+
+   连接源站的超时时间
 
 .. ts:cv:: CONFIG proxy.config.http.post_connect_attempts_timeout INT 1800
    :reloadable:
@@ -1186,16 +1239,22 @@ Origin Server Connect Attempts
    The timeout value (in seconds) for an origin server connection when the client request is a ``POST`` or ``PUT``
    request.
 
+   当客户端请求为 ``POST`` 或者 ``PUT`` 时连接源站的超时时间
+
 .. ts:cv:: CONFIG proxy.config.http.down_server.cache_time INT 900
    :reloadable:
 
    Specifies how long (in seconds) Traffic Server remembers that an origin server was unreachable.
+
+   配置Traffic Server标记源站不可达的粘滞时间
 
 .. ts:cv:: CONFIG proxy.config.http.down_server.abort_threshold INT 10
    :reloadable:
 
    The number of seconds before Traffic Server marks an origin server as unavailable after a client abandons a request
    because the origin server was too slow in sending the response header.
+
+   配置客户端因为源站太慢而放弃连接的时间，超过这个时间Traffic Server标记源站不可达
 
 Congestion Control
 ==================
@@ -1206,9 +1265,13 @@ Congestion Control
    HTTP requests to origin servers when they become congested. Traffic Server sends the client a message to retry the
    congested origin server later. Refer to :ref:`using-congestion-control`.
 
+   开启或者关闭拥塞控制选项，这样Traffic Server会在自身拥塞的时候停止转发请求到源站， Traffic Server会给客户端发送消息告知其稍后重试，具体参考 :ref:`using-congestion-control`.
+
 .. ts:cv:: CONFIG proxy.config.http.flow_control.enabled INT 0
 
    Transaction buffering / flow control is enabled if this is set to a non-zero value. Otherwise no flow control is done.
+
+   配置事务缓存或者流量控制，如果设置为非零则开启，否则关闭
 
 .. ts:cv:: CONFIG proxy.config.http.flow_control.high_water INT 65536
    :metric: bytes
@@ -1216,11 +1279,15 @@ Congestion Control
    The high water mark for transaction buffer control. External source I/O is halted when the total buffer space in use
    by the transaction exceeds this value.
 
+   事务缓存的的高警戒线，如果超过这个值，外部的IO会关闭。
+
 .. ts:cv:: CONFIG proxy.config.http.flow_control.low_water INT 65536
    :metric: bytes
 
    The low water mark for transaction buffer control. External source I/O is resumed when the total buffer space in use
    by the transaction is no more than this value.
+
+   事务缓存的的低警戒线，如果低于这个值，外部的IO会重新开始。
 
 Negative Response Caching
 =========================
@@ -1231,6 +1298,8 @@ Negative Response Caching
    When enabled (``1``), Traffic Server caches negative responses (such as ``404 Not Found``) when a requested page does
    not exist. The next time a client requests the same page, Traffic Server serves the negative response directly from
    cache.
+
+   当开启时Traffic Server会缓存错误响应，下次客户端请求是Traffic Server会直接从缓存中响应错误响应
 
    .. note::
 
@@ -1250,8 +1319,24 @@ Negative Response Caching
          503  Service Unavailable
          504  Gateway Timeout
 
+      对于如下的响应码 ``Cache-Control`` 响应报头的禁止缓存会被忽略， 不管配置项 :ts:cv:`proxy.config.http.negative_caching_enabled` 的值是多少。 如下的响应码会被缓存:::
+
+         204  No Content
+         305  Use Proxy
+         400  Bad Request
+         403  Forbidden
+         404  Not Found
+         405  Method Not Allowed
+         500  Internal Server Error
+         501  Not Implemented
+         502  Bad Gateway
+         503  Service Unavailable
+         504  Gateway Timeout
+
    The cache lifetime for objects cached from this setting is controlled via
    :ts:cv:`proxy.config.http.negative_caching_lifetime`.
+
+   错误请求的缓存时间由 :ts:cv:`proxy.config.http.negative_caching_lifetime` 控制
 
 Proxy User Variables
 ====================
@@ -1261,44 +1346,62 @@ Proxy User Variables
 
    When enabled (``1``), Traffic Server removes the ``From`` header to protect the privacy of your users.
 
+   当开启时，Traffic Server会删除 ``From`` 报头以保护用户隐私
+
 .. ts:cv:: CONFIG proxy.config.http.anonymize_remove_referer INT 0
    :reloadable:
 
    When enabled (``1``), Traffic Server removes the ``Referrer`` header to protect the privacy of your site and users.
+
+   当开启时，Traffic Server会删除  ``Referrer`` 报头以保护用户隐私
 
 .. ts:cv:: CONFIG proxy.config.http.anonymize_remove_user_agent INT 0
    :reloadable:
 
    When enabled (``1``), Traffic Server removes the ``User-agent`` header to protect the privacy of your site and users.
 
+   当开启时，Traffic Server会删除  ``User-agent`` 报头以保护用户隐私
+
 .. ts:cv:: CONFIG proxy.config.http.anonymize_remove_cookie INT 0
    :reloadable:
 
    When enabled (``1``), Traffic Server removes the ``Cookie`` header to protect the privacy of your site and users.
+
+   当开启时，Traffic Server会删除  ``Cookie`` 报头以保护用户隐私
 
 .. ts:cv:: CONFIG proxy.config.http.anonymize_remove_client_ip INT 0
    :reloadable:
 
    When enabled (``1``), Traffic Server removes ``Client-IP`` headers for more privacy.
 
+   当开启时，Traffic Server会删除  ``Client-IP`` 报头以保护用户隐私
+
 .. ts:cv:: CONFIG proxy.config.http.anonymize_insert_client_ip INT 1
    :reloadable:
 
    When enabled (``1``), Traffic Server inserts ``Client-IP`` headers to retain the client IP address.
 
+   当开启时，Traffic Server插入 ``Client-IP`` 报头来保持客户端IP
+
 .. ts:cv:: CONFIG proxy.config.http.append_xforwards_header INT 0
 
    When enabled (``1``), Traffic Server appends ``X-Forwards`` headers to outgoing requests.
+
+   当开启时， Traffic Server在出请求时插入 ``X-Forwards`` 报头
 
 .. ts:cv:: CONFIG proxy.config.http.anonymize_other_header_list STRING NULL
    :reloadable:
 
    The headers Traffic Server should remove from outgoing requests.
 
+   在Traffic Server 出请求时要删除的报头
+
 .. ts:cv:: CONFIG proxy.config.http.insert_squid_x_forwarded_for INT 0
    :reloadable:
 
    When enabled (``1``), Traffic Server adds the client IP address to the ``X-Forwarded-For`` header.
+
+   当开启时， Traffic Server在出请求时插入 ``X-Forwards-For`` 报头
 
 .. ts:cv:: CONFIG proxy.config.http.normalize_ae_gzip INT 0
    :reloadable:
@@ -1308,8 +1411,15 @@ Proxy User Variables
    -  ``Accept-Encoding: gzip`` (if the header has ``gzip`` or ``x-gzip`` with any ``q``) **OR**
    -  *blank* (for any header that does not include ``gzip``)
 
+   开启以让所有 ``Accept-Encoding:`` 报头规范为如下中的一个：
+
+   - ``Accept-Encoding: gzip`` 如果报头有 ``gzip`` 或者 ``x-gzip``
+   - *空白* 如果没有 ``gzip`` 报头
+
    This is useful for minimizing cached alternates of documents (e.g. ``gzip, deflate`` vs. ``deflate, gzip``). Enabling this option is
    recommended if your origin servers use no encodings other than ``gzip``.
+
+   这点对于节省缓存空间很有用，如果你的源站用的是 ``gzip`` 开启这个选项很有用
 
 
 Security
@@ -1321,11 +1431,15 @@ Security
    Enables (``1``) or disables (``0``) the HTTP ``PUSH`` option, which allows you to deliver content directly to the cache without a user
    request.
 
+   开启或者关闭 ``PUSH`` 请求，该请求可以不需要请求情况下直接写缓存
+
    .. important::
 
        If you enable this option, then you must also specify
        a filtering rule in the ip_allow.config file to allow only certain
        machines to push content into the cache.
+
+       如果你开启此选项，必须在ip_allow.config里写一条过滤规则只允许特定主机push到缓存里
 
 Cache Control
 =============
